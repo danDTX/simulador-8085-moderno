@@ -1,0 +1,7 @@
+.org 100h
+
+	MVI A, 07H
+	MOV B, A
+	MOV C, B
+	MVI D, 09H
+	HLT

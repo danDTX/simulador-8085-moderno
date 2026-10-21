@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador Intel 8085 Moderno (MDI Edition)</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 1. Menú Superior de la Aplicación -->
+    <header class="app-menubar">
+      <div class="menu-app-brand">
+        <span>⚡ 8085sim Modern</span>
+      </div>
+
+      <!-- Menú Archivo -->
+      <div class="menu-bar-item">
+        <button class="menu-btn">Archivo</button>
+        <div class="menu-dropdown">
+          <button id="menu-file-new">Nuevo Programa</button>
+          <button id="menu-file-open">Abrir .asm...</button>
+          <button id="menu-file-save">Guardar .asm</button>
+          <div class="menu-divider"></div>
+          <button id="menu-file-export-o">Exportar .o (8085sim)</button>
+        </div>
+      </div>
+
+      <!-- Menú Ejecutar -->
+      <div class="menu-bar-item">
+        <button class="menu-btn">Ejecutar</button>
+        <div class="menu-dropdown">
+          <button id="menu-exec-assemble">⚙️ Ensamblar a Memoria <span>F9</span></button>
+          <button id="menu-exec-step">⏩ Paso a Paso <span>F7</span></button>
+          <button id="menu-exec-run">▶️ Ejecutar Continuo <span>F5</span></button>
+          <button id="menu-exec-pause">⏸️ Pausar</button>
+          <div class="menu-divider"></div>
+          <button id="menu-exec-reset">🔄 Reiniciar CPU <span>F2</span></button>
+        </div>
+      </div>
+
+      <!-- Menú Dispositivos (Imagen 3) -->
+      <div class="menu-bar-item">
+        <button class="menu-btn">Dispositivos</button>
+        <div class="menu-dropdown">
+          <button id="menu-dev-editor">📝 Editor ASM</button>
+          <div class="menu-divider"></div>
+          <button id="menu-dev-terminal">📺 Pantalla de Texto (0E000H)</button>
+          <button id="menu-dev-keypad">⌨️ Teclado (Puerto 00H / RST 5.5)</button>
+          <button id="menu-dev-leds">💡 Panel de LEDs</button>
+          <button id="menu-dev-displays7">🔢 Display 7 segmentos</button>
+          <button id="menu-dev-displays15">🔤 Display 15 segmentos</button>
+          <button id="menu-dev-switches">🎚️ Panel de Interruptores</button>
+        </div>
+      </div>
+
+      <!-- Menú Ejemplos -->
+      <div class="menu-bar-item">
+        <button class="menu-btn">Ejemplos</button>
+        <div class="menu-dropdown">
+          <button id="menu-example-ejemplo25">🏦 Llave Digital (ejemplo 25.asm)</button>
+          <button id="menu-example-cajero">🏧 Cajero Automático (cajero.asm)</button>
+          <button id="menu-example-snake">🐍 Juego Snake 8085 (Snake.asm)</button>
+          <button id="menu-example-leds">🏎️ Coche Fantástico (Leds.asm)</button>
+        </div>
+      </div>
+
+      <!-- Menú Opciones -->
+      <div class="menu-bar-item">
+        <button class="menu-btn">Opciones</button>
+        <div class="menu-dropdown">
+          <button id="menu-opt-interrupts">⚡ Interrupciones automáticas...</button>
+        </div>
+      </div>
+
+      <!-- Menú Ver -->
+      <div class="menu-bar-item">
+        <button class="menu-btn">Ver</button>
+        <div class="menu-dropdown">
+          <button id="menu-view-theme">🌓 Alternar Tema Oscuro / Claro</button>
+          <div class="menu-divider"></div>
+          <button id="menu-view-zoom-in">🔍 Aumentar Tamaño / Zoom <span>Ctrl +</span></button>
+          <button id="menu-view-zoom-out">🔍 Reducir Tamaño / Zoom <span>Ctrl -</span></button>
+          <button id="menu-view-zoom-reset">🔄 Restablecer Tamaño (100%) <span>Ctrl 0</span></button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 2. Escritorio MDI Flotante -->
+    <main id="mdi-desktop" class="mdi-desktop"></main>
+
+    <!-- 3. Barra de Tareas Inferior -->
+    <footer class="app-taskbar">
+      <div id="mdi-taskbar-items" style="display: flex; gap: 6px;"></div>
+    </footer>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

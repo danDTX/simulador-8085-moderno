@@ -1,0 +1,16 @@
+.org 100h
+
+MVI A, 00H
+CICLO: 
+	OUT 01H
+	INR A
+	INR A
+	CPI 0CH
+	JZ FIN
+	JMP CICLO
+
+FIN:
+	MVI A, 00H
+	JMP CICLO
+
+HLT
