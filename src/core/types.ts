@@ -46,4 +46,21 @@ export interface AssemblyResult {
   addressToSourceLine: Map<number, number>;
   objectCodeText: string; // Compatible with .o format of 8085sim
   entryPoint: number;
+  codeAddresses: Set<number>;
+}
+
+export interface MemWriteRecord {
+  addr: number;
+  prevVal: number;
+}
+
+export interface CpuSnapshot {
+  regs: CpuRegisters;
+  flags: CpuFlags;
+  interrupts: InterruptState;
+  halted: boolean;
+  totalCycles: number;
+  sidBit: boolean;
+  sodBit: boolean;
+  memWrites: MemWriteRecord[];
 }

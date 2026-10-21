@@ -601,6 +601,56 @@ export class Assembler8085 {
       addressToSourceLine.set(inst.address, inst.lineNum);
     }
 
+    // Track all code memory addresses for runtime memory protection
+    const codeAddresses = new Set<number>();
+    for (const inst of parsedLines) {
+      if (!inst.isDirective && inst.bytes) {
+        for (let b = 0; b < inst.bytes.length; b++) {
+          codeAddresses.add(inst.address + b);
+        }
+      }
+    }
+
+    // =========================================================================
+    // =========================================================================
+    // ANÁLISIS DE INTEGRIDAD DE MEMORIA (100% FACTUAL, SIN SUPOSICIONES)
+    // =========================================================================
+    // Detección de colisión real entre bloques (.org y .data) que reclamen las mismas
+    // direcciones físicas de memoria, evitando sobreescritura accidental al ensamblar.
+    const occupiedRanges: { name: string; start: number; end: number; line: number }[] = [];
+    let currentBlock: { name: string; start: number; end: number; line: number } | null = null;
+
+    for (const inst of parsedLines) {
+      if (inst.isDirective && (inst.directiveType === 'ORG' || inst.directiveType === 'DATA')) {
+        if (currentBlock) {
+          occupiedRanges.push(currentBlock);
+        }
+        currentBlock = {
+          name: inst.directiveType,
+          start: inst.address,
+          end: inst.address + (inst.size || 0),
+          line: inst.lineNum
+        };
+      } else if (currentBlock) {
+        currentBlock.end = Math.max(currentBlock.end, inst.address + (inst.size || 0));
+      }
+    }
+    if (currentBlock) occupiedRanges.push(currentBlock);
+
+    for (let i = 0; i < occupiedRanges.length; i++) {
+      for (let j = i + 1; j < occupiedRanges.length; j++) {
+        const b1 = occupiedRanges[i];
+        const b2 = occupiedRanges[j];
+        if (b1.start < b2.end && b2.start < b1.end) {
+          diagnostics.push({
+            line: b2.line,
+            message: `⚠️ Advertencia de Colisión: El bloque en ${b2.start.toString(16).padStart(4, '0').toUpperCase()}H se solapa con el bloque previo en ${b1.start.toString(16).padStart(4, '0').toUpperCase()}H (Línea ${b1.line}). Posible sobreescritura de memoria.`,
+            isError: false
+          });
+        }
+      }
+    }
+
     return {
       success: diagnostics.filter(d => d.isError).length === 0,
       diagnostics,
@@ -609,7 +659,8 @@ export class Assembler8085 {
       sourceLineToAddress,
       addressToSourceLine,
       objectCodeText,
-      entryPoint
+      entryPoint,
+      codeAddresses
     };
   }
 }

@@ -8,9 +8,12 @@ export function createMainConsolePanel(
   perifs: PeripheralsManager,
   callbacks: {
     onStep: () => void;
+    onStepOver?: () => void;
+    onStepBack?: () => void;
     onRun: () => void;
     onStop: () => void;
     onReset: () => void;
+    onToggleBreakpoint?: (addr: number) => void;
   }
 ): { element: HTMLElement; update: () => void; setRunningState: (running: boolean) => void } {
   const panel = document.createElement('div');
@@ -39,8 +42,9 @@ export function createMainConsolePanel(
 
         <!-- CENTER: Execution Buttons & Gears -->
         <div class="console-center-controls">
-          <button class="console-btn" id="cbtn-over" title="Paso sin entrar a subrutina">Over ⤴</button>
-          <button class="console-btn" id="cbtn-step" title="Paso a Paso (F7)">Step ▷</button>
+          <button class="console-btn" id="cbtn-over" title="Paso sin entrar a subrutina / Step Over (F8)">Over ⤴</button>
+          <button class="console-btn" id="cbtn-step" title="Paso a Paso / Step Into (F7)">Step ▷</button>
+          <button class="console-btn" id="cbtn-back" title="Paso Atrás / Step Back (Shift+F7)">Back ◁</button>
           <button class="console-btn" id="cbtn-run" title="Ejecutar Continuo (F5)">Run ▷▷</button>
           <button class="console-btn" id="cbtn-stop" title="Detener Ejecución">Stop ⏹️</button>
           <div class="gears-container" id="gears-anim">
@@ -152,7 +156,10 @@ export function createMainConsolePanel(
 
         <!-- 2: Puertos E/S -->
         <div class="console-box console-bottom-box">
-          <div class="box-title">Puertos E/S</div>
+          <div class="box-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Puertos E/S</span>
+            <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">256 puertos (00-FF)</span>
+          </div>
           <div class="mini-table-scroll">
             <table class="mini-table">
               <thead>
@@ -165,8 +172,16 @@ export function createMainConsolePanel(
 
         <!-- 3: Memoria (Datos) -->
         <div class="console-box console-bottom-box">
-          <div class="box-title">Memoria (Datos)</div>
-          <div class="mini-table-scroll">
+          <div class="box-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span title="Memoria completa de 64 KB (0000H - FFFFH)">Memoria (Datos)</span>
+            <div style="display: flex; align-items: center; gap: 3px;">
+              <span style="font-size: 10px; color: var(--text-muted);">Dir:</span>
+              <input id="cdata-addr-input" type="text" value="0800" maxlength="4" style="width: 44px; font-family: var(--font-mono); font-size: 10px; padding: 1px 3px; background: #0d1117; color: #58a6ff; border: 1px solid #30363d; border-radius: 3px; text-align: center;" title="Ir a dirección hex (0000-FFFF) - Presione Enter" />
+              <button id="cbtn-data-prev" class="btn-tool" style="padding: 1px 4px; font-size: 9px;" title="Subir (-16 direcciones)">▲</button>
+              <button id="cbtn-data-next" class="btn-tool" style="padding: 1px 4px; font-size: 9px;" title="Bajar (+16 direcciones)">▼</button>
+            </div>
+          </div>
+          <div class="mini-table-scroll" id="console-data-scroll">
             <table class="mini-table">
               <thead>
                 <tr><th style="width: 55%;">Dirección</th><th style="width: 45%;">Dato</th></tr>
@@ -178,8 +193,16 @@ export function createMainConsolePanel(
 
         <!-- 4: Memoria (Pila) -->
         <div class="console-box console-bottom-box">
-          <div class="box-title">Memoria (Pila)</div>
-          <div class="mini-table-scroll">
+          <div class="box-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span title="Pila en memoria RAM de 64 KB (0000H - FFFFH)">Memoria (Pila)</span>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span id="cstack-sp-badge" style="font-family: var(--font-mono); font-size: 10px; color: #3fb950; font-weight: bold;">SP: FFFF</span>
+              <button id="cbtn-stack-sp" class="btn-tool" style="padding: 1px 4px; font-size: 9px;" title="Ir a dirección apuntada por SP">SP</button>
+              <button id="cbtn-stack-top" class="btn-tool" style="padding: 1px 4px; font-size: 9px;" title="Ir al tope superior (FFFFH)">Tope</button>
+              <button id="cbtn-stack-bot" class="btn-tool" style="padding: 1px 4px; font-size: 9px;" title="Ir al inicio (0000H)">0000</button>
+            </div>
+          </div>
+          <div class="mini-table-scroll" id="console-stack-scroll">
             <table class="mini-table">
               <thead>
                 <tr><th style="width: 55%;">Direcc.</th><th style="width: 45%;">Dato</th></tr>
@@ -194,10 +217,30 @@ export function createMainConsolePanel(
 
   // Attach button events
   panel.querySelector('#cbtn-step')?.addEventListener('click', callbacks.onStep);
+  panel.querySelector('#cbtn-over')?.addEventListener('click', () => {
+    if (callbacks.onStepOver) callbacks.onStepOver();
+    else callbacks.onStep();
+  });
+  panel.querySelector('#cbtn-back')?.addEventListener('click', () => {
+    if (callbacks.onStepBack) callbacks.onStepBack();
+  });
   panel.querySelector('#cbtn-run')?.addEventListener('click', callbacks.onRun);
   panel.querySelector('#cbtn-stop')?.addEventListener('click', callbacks.onStop);
-  panel.querySelector('#cbtn-over')?.addEventListener('click', callbacks.onStep);
   panel.querySelector('#cbtn-reset')?.addEventListener('click', callbacks.onReset);
+
+  // Click on instruction address to toggle breakpoint
+  panel.querySelector('#console-inst-tbody')?.addEventListener('click', (e: Event) => {
+    const target = (e.target as HTMLElement).closest('.inst-addr') as HTMLElement;
+    if (!target) return;
+    const addr = parseInt(target.getAttribute('data-addr') || '', 10);
+    if (!isNaN(addr)) {
+      cpu.toggleBreakpoint(addr);
+      update();
+      if (callbacks.onToggleBreakpoint) {
+        callbacks.onToggleBreakpoint(addr);
+      }
+    }
+  });
 
   // Configure automatic interrupts button
   panel.querySelector('#cbtn-config-intr')?.addEventListener('click', () => {
@@ -219,6 +262,230 @@ export function createMainConsolePanel(
   });
   panel.querySelector('#chk-req-intr')?.addEventListener('change', (e) => {
     cpu.interrupts.intr = (e.target as HTMLInputElement).checked;
+  });
+
+  // Pre-render Ports Table once to eliminate DOM destruction/reconstruction on each tick
+  const tbodyPorts = panel.querySelector('#console-ports-tbody') as HTMLElement;
+  const portInCells: HTMLElement[] = [];
+  const portOutCells: HTMLElement[] = [];
+  const lastPortsIn: string[] = new Array(256).fill('');
+  const lastPortsOut: string[] = new Array(256).fill('');
+  let lastRenderedPc: number = -1;
+
+  if (tbodyPorts) {
+    let portsInitialHtml = '';
+    for (let p = 0; p < 256; p++) {
+      const hexP = (p & 0xff).toString(16).padStart(2, '0').toUpperCase();
+      portsInitialHtml += `
+        <tr>
+          <td>${hexP}</td>
+          <td class="port-in-val" id="cport-in-${p}" data-port="${p}" style="cursor: pointer;" title="Doble clic para simular entrada">00</td>
+          <td class="port-out-val" id="cport-out-${p}">00</td>
+        </tr>
+      `;
+    }
+    tbodyPorts.innerHTML = portsInitialHtml;
+    for (let p = 0; p < 256; p++) {
+      portInCells[p] = panel.querySelector(`#cport-in-${p}`) as HTMLElement;
+      portOutCells[p] = panel.querySelector(`#cport-out-${p}`) as HTMLElement;
+    }
+  }
+
+  // 64 KB Memory Virtual Scroller Constants & Setup (0000H - FFFFH)
+  const ROW_HEIGHT = 20;
+  const TOTAL_MEMORY = 65536;
+
+  const dataScroll = panel.querySelector('#console-data-scroll') as HTMLElement;
+  const stackScroll = panel.querySelector('#console-stack-scroll') as HTMLElement;
+  const tbodyData = panel.querySelector('#console-data-tbody') as HTMLElement;
+  const tbodyStack = panel.querySelector('#console-stack-tbody') as HTMLElement;
+  const dataInput = panel.querySelector('#cdata-addr-input') as HTMLInputElement;
+
+  let lastSp = cpu.regs.sp;
+
+  const renderDataVirtual = () => {
+    if (!dataScroll || !tbodyData) return;
+    const scrollTop = dataScroll.scrollTop;
+    const clientH = dataScroll.clientHeight || 180;
+    const visibleCount = Math.ceil(clientH / ROW_HEIGHT) + 4;
+    const startIdx = Math.max(0, Math.min(TOTAL_MEMORY - visibleCount, Math.floor(scrollTop / ROW_HEIGHT)));
+    const endIdx = Math.min(TOTAL_MEMORY, startIdx + visibleCount);
+
+    const topHeight = startIdx * ROW_HEIGHT;
+    const bottomHeight = (TOTAL_MEMORY - endIdx) * ROW_HEIGHT;
+
+    const hex2 = (v: number) => (v & 0xff).toString(16).padStart(2, '0').toUpperCase();
+    const hex4 = (v: number) => (v & 0xffff).toString(16).padStart(4, '0').toUpperCase();
+
+    let html = '';
+    if (topHeight > 0) {
+      html += `<tr style="height: ${topHeight}px;"><td colspan="2" style="padding:0; border:none;"></td></tr>`;
+    }
+    for (let addr = startIdx; addr < endIdx; addr++) {
+      html += `
+        <tr class="vrow">
+          <td>${hex4(addr)}</td>
+          <td class="mem-data-val" data-addr="${addr}" style="cursor: pointer;" title="Doble clic para modificar dato">${hex2(cpu.readByte(addr))}</td>
+        </tr>
+      `;
+    }
+    if (bottomHeight > 0) {
+      html += `<tr style="height: ${bottomHeight}px;"><td colspan="2" style="padding:0; border:none;"></td></tr>`;
+    }
+    tbodyData.innerHTML = html;
+
+    if (dataInput && document.activeElement !== dataInput) {
+      dataInput.value = hex4(startIdx);
+    }
+  };
+
+  const renderStackVirtual = () => {
+    if (!stackScroll || !tbodyStack) return;
+    const sp = cpu.regs.sp;
+    if (lastSp !== sp) {
+      lastSp = sp;
+      stackScroll.scrollTop = Math.max(0, (sp - 3)) * ROW_HEIGHT;
+    }
+
+    const scrollTop = stackScroll.scrollTop;
+    const clientH = stackScroll.clientHeight || 180;
+    const visibleCount = Math.ceil(clientH / ROW_HEIGHT) + 4;
+    const startIdx = Math.max(0, Math.min(TOTAL_MEMORY - visibleCount, Math.floor(scrollTop / ROW_HEIGHT)));
+    const endIdx = Math.min(TOTAL_MEMORY, startIdx + visibleCount);
+
+    const topHeight = startIdx * ROW_HEIGHT;
+    const bottomHeight = (TOTAL_MEMORY - endIdx) * ROW_HEIGHT;
+
+    const hex2 = (v: number) => (v & 0xff).toString(16).padStart(2, '0').toUpperCase();
+    const hex4 = (v: number) => (v & 0xffff).toString(16).padStart(4, '0').toUpperCase();
+
+    let html = '';
+    if (topHeight > 0) {
+      html += `<tr style="height: ${topHeight}px;"><td colspan="2" style="padding:0; border:none;"></td></tr>`;
+    }
+    for (let addr = startIdx; addr < endIdx; addr++) {
+      const isSp = (addr === sp);
+      const spStyle = isSp ? 'font-weight: bold; color: #3fb950;' : '';
+      html += `
+        <tr class="vrow ${isSp ? 'row-sp-active' : ''}">
+          <td style="${spStyle}">${isSp ? '👉 ' : ''}${hex4(addr)}</td>
+          <td class="mem-stack-val" data-addr="${addr}" style="${spStyle} cursor: pointer;" title="Doble clic para modificar dato">${hex2(cpu.readByte(addr))}</td>
+        </tr>
+      `;
+    }
+    if (bottomHeight > 0) {
+      html += `<tr style="height: ${bottomHeight}px;"><td colspan="2" style="padding:0; border:none;"></td></tr>`;
+    }
+    tbodyStack.innerHTML = html;
+
+    const badgeSp = panel.querySelector('#cstack-sp-badge');
+    if (badgeSp) badgeSp.textContent = `SP: ${hex4(sp)}`;
+  };
+
+  dataScroll?.addEventListener('scroll', renderDataVirtual);
+  stackScroll?.addEventListener('scroll', renderStackVirtual);
+
+  const applyDataAddr = () => {
+    if (!dataInput || !dataScroll) return;
+    const parsed = parseInt(dataInput.value.replace(/[^0-9a-fA-F]/g, ''), 16);
+    if (!isNaN(parsed)) {
+      const addr = Math.max(0, Math.min(TOTAL_MEMORY - 1, parsed));
+      dataScroll.scrollTop = addr * ROW_HEIGHT;
+      renderDataVirtual();
+    }
+  };
+  dataInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') applyDataAddr();
+  });
+  dataInput?.addEventListener('blur', applyDataAddr);
+
+  panel.querySelector('#cbtn-data-prev')?.addEventListener('click', () => {
+    if (dataScroll) {
+      dataScroll.scrollTop = Math.max(0, dataScroll.scrollTop - 16 * ROW_HEIGHT);
+      renderDataVirtual();
+    }
+  });
+
+  panel.querySelector('#cbtn-data-next')?.addEventListener('click', () => {
+    if (dataScroll) {
+      dataScroll.scrollTop = Math.min(TOTAL_MEMORY * ROW_HEIGHT, dataScroll.scrollTop + 16 * ROW_HEIGHT);
+      renderDataVirtual();
+    }
+  });
+
+  panel.querySelector('#cbtn-stack-sp')?.addEventListener('click', () => {
+    if (stackScroll) {
+      stackScroll.scrollTop = Math.max(0, cpu.regs.sp - 3) * ROW_HEIGHT;
+      renderStackVirtual();
+    }
+  });
+
+  panel.querySelector('#cbtn-stack-top')?.addEventListener('click', () => {
+    if (stackScroll) {
+      stackScroll.scrollTop = (0xffff - 5) * ROW_HEIGHT;
+      renderStackVirtual();
+    }
+  });
+
+  panel.querySelector('#cbtn-stack-bot')?.addEventListener('click', () => {
+    if (stackScroll) {
+      stackScroll.scrollTop = 0;
+      renderStackVirtual();
+    }
+  });
+
+  // Double-click to edit data memory cell
+  panel.querySelector('#console-data-tbody')?.addEventListener('dblclick', (e) => {
+    const td = (e.target as HTMLElement).closest('.mem-data-val') as HTMLElement;
+    if (!td) return;
+    const addr = parseInt(td.getAttribute('data-addr') || '', 10);
+    if (!isNaN(addr)) {
+      const currentVal = cpu.readByte(addr);
+      const valStr = prompt(`Modificar byte en ${addr.toString(16).padStart(4, '0').toUpperCase()}H (Hex):`, (currentVal & 0xff).toString(16).padStart(2, '0').toUpperCase());
+      if (valStr !== null) {
+        const parsed = parseInt(valStr.trim(), 16);
+        if (!isNaN(parsed)) {
+          cpu.writeByte(addr, parsed & 0xff);
+          update();
+        }
+      }
+    }
+  });
+
+  // Double-click to edit stack memory cell
+  panel.querySelector('#console-stack-tbody')?.addEventListener('dblclick', (e) => {
+    const td = (e.target as HTMLElement).closest('.mem-stack-val') as HTMLElement;
+    if (!td) return;
+    const addr = parseInt(td.getAttribute('data-addr') || '', 10);
+    if (!isNaN(addr)) {
+      const currentVal = cpu.readByte(addr);
+      const valStr = prompt(`Modificar pila en ${addr.toString(16).padStart(4, '0').toUpperCase()}H (Hex):`, (currentVal & 0xff).toString(16).padStart(2, '0').toUpperCase());
+      if (valStr !== null) {
+        const parsed = parseInt(valStr.trim(), 16);
+        if (!isNaN(parsed)) {
+          cpu.writeByte(addr, parsed & 0xff);
+          update();
+        }
+      }
+    }
+  });
+
+  // Double-click to edit port input value
+  panel.querySelector('#console-ports-tbody')?.addEventListener('dblclick', (e) => {
+    const td = (e.target as HTMLElement).closest('.port-in-val') as HTMLElement;
+    if (!td) return;
+    const port = parseInt(td.getAttribute('data-port') || '', 10);
+    if (!isNaN(port)) {
+      const currentVal = perifs.state.portsIn[port] ?? 0;
+      const valStr = prompt(`Simular valor de entrada en Puerto ${port.toString(16).padStart(2, '0').toUpperCase()}H (Hex):`, (currentVal & 0xff).toString(16).padStart(2, '0').toUpperCase());
+      if (valStr !== null) {
+        const parsed = parseInt(valStr.trim(), 16);
+        if (!isNaN(parsed)) {
+          perifs.setInputPortByte(port, parsed & 0xff);
+          update();
+        }
+      }
+    }
   });
 
   const update = () => {
@@ -268,22 +535,23 @@ export function createMainConsolePanel(
     setLed('b1', (psw & 0x02) !== 0);
     setLed('cy', cpu.flags.cy);
 
-    // 3. Instructions Table (Window around PC)
+    // 3. Instructions Table (Window around PC - Only re-render when PC changes)
     const tbodyInst = panel.querySelector('#console-inst-tbody');
-    if (tbodyInst) {
+    if (tbodyInst && lastRenderedPc !== pc) {
+      lastRenderedPc = pc;
       let instHtml = '';
-      // Disassemble 16 instructions starting from current PC or a bit earlier
       const startAddr = Math.max(0, pc - 4);
       let curAddr = startAddr;
       for (let i = 0; i < 18; i++) {
         if (curAddr >= 0xffff) break;
         const d = Disassembler8085.disassemble(cpu.memory, curAddr);
         const isPc = (d.address === pc);
+        const hasBp = cpu.hasBreakpoint(d.address);
         const hexCodes = d.bytes.map(b => hex2(b)).join(' ');
 
         instHtml += `
-          <tr class="${isPc ? 'row-pc-active' : ''}">
-            <td class="inst-addr">${hex4(d.address)}</td>
+          <tr class="${isPc ? 'row-pc-active' : ''} ${hasBp ? 'row-bp-active' : ''}">
+            <td class="inst-addr" data-addr="${d.address}" style="cursor: pointer;" title="${hasBp ? 'Punto de interrupción activo (clic para quitar)' : 'Clic para alternar breakpoint'}">${hasBp ? '🔴 ' : ''}${hex4(d.address)}</td>
             <td class="inst-mnem">${d.text}</td>
             <td class="inst-code">${hexCodes}</td>
           </tr>
@@ -293,58 +561,23 @@ export function createMainConsolePanel(
       tbodyInst.innerHTML = instHtml;
     }
 
-    // 4. Ports Table (00H - 09H)
-    const tbodyPorts = panel.querySelector('#console-ports-tbody');
-    if (tbodyPorts) {
-      let portsHtml = '';
-      for (let p = 0; p <= 9; p++) {
-        const inVal = hex2(perifs.state.portsIn[p] ?? 0);
-        const outVal = hex2(perifs.state.portsOut[p] ?? 0);
-        portsHtml += `
-          <tr>
-            <td>${hex2(p)}</td>
-            <td>${inVal}</td>
-            <td>${outVal}</td>
-          </tr>
-        `;
+    // 4. Ports Table (Optimized: Direct cell updates without rebuilding 256 DOM elements)
+    for (let p = 0; p < 256; p++) {
+      const inVal = hex2(perifs.state.portsIn[p] ?? 0);
+      const outVal = hex2(perifs.state.portsOut[p] ?? 0);
+      if (lastPortsIn[p] !== inVal) {
+        lastPortsIn[p] = inVal;
+        if (portInCells[p]) portInCells[p].textContent = inVal;
       }
-      tbodyPorts.innerHTML = portsHtml;
+      if (lastPortsOut[p] !== outVal) {
+        lastPortsOut[p] = outVal;
+        if (portOutCells[p]) portOutCells[p].textContent = outVal;
+      }
     }
 
-    // 5. Data Memory Table (0800H - 081FH or around 0050H)
-    const tbodyData = panel.querySelector('#console-data-tbody');
-    if (tbodyData) {
-      let dataHtml = '';
-      const dataBase = 0x0800; // Common variables area
-      for (let d = 0; d < 10; d++) {
-        const addr = dataBase + d;
-        dataHtml += `
-          <tr>
-            <td>${hex4(addr)}</td>
-            <td>${hex2(cpu.readByte(addr))}</td>
-          </tr>
-        `;
-      }
-      tbodyData.innerHTML = dataHtml;
-    }
-
-    // 6. Stack Memory Table (Around SP)
-    const tbodyStack = panel.querySelector('#console-stack-tbody');
-    if (tbodyStack) {
-      let stackHtml = '';
-      const stackBase = Math.min(0xfff0, sp);
-      for (let s = 0; s < 10; s++) {
-        const addr = stackBase + s;
-        const isSp = (addr === sp);
-        stackHtml += `
-          <tr class="${isSp ? 'row-sp-active' : ''}">
-            <td>${hex4(addr)}</td>
-            <td>${hex2(cpu.readByte(addr))}</td>
-          </tr>
-        `;
-      }
-      tbodyStack.innerHTML = stackHtml;
-    }
+    // 5. Data & Stack Virtual Memory Tables (Full 64 KB Space: 0000H - FFFFH)
+    renderDataVirtual();
+    renderStackVirtual();
 
     // 7. Interrupt Masks & State Checkboxes
     const chkHab75 = panel.querySelector('#chk-hab-75') as HTMLInputElement;
@@ -426,6 +659,10 @@ export function createMainConsolePanel(
   };
 
   setRunningState(false);
+  setTimeout(() => {
+    if (dataScroll) dataScroll.scrollTop = 0x0800 * ROW_HEIGHT;
+    if (stackScroll) stackScroll.scrollTop = Math.max(0, (cpu.regs.sp - 3)) * ROW_HEIGHT;
+  }, 0);
   update();
   return { element: panel, update, setRunningState };
 }

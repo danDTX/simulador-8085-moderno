@@ -1,6 +1,12 @@
 import { PeripheralsManager } from '../../core/peripherals.js';
 
-export function createDipSwitchesPanel(perifs: PeripheralsManager): HTMLElement {
+export interface DipSwitchesInstance {
+  element: HTMLElement;
+  update: () => void;
+  destroy: () => void;
+}
+
+export function createDipSwitchesPanel(perifs: PeripheralsManager): DipSwitchesInstance {
   const panel = document.createElement('div');
   panel.className = 'panel-switches-multi';
 
@@ -22,7 +28,7 @@ export function createDipSwitchesPanel(perifs: PeripheralsManager): HTMLElement 
       for (let b = 7; b >= 0; b--) {
         const isUp = ((val >> b) & 1) === 1;
         switchesRow += `
-          <div class="msw-slot" data-port="${port}" data-bit="${b}">
+          <div class="msw-slot" data-port="${port}" data-bit="${b}" title="Puerto ${portHex}, Bit ${b}: ${isUp ? '1 (Alto)' : '0 (Bajo)'}">
             <div class="msw-lever ${isUp ? 'msw-on' : 'msw-off'}"></div>
           </div>
         `;
@@ -30,7 +36,7 @@ export function createDipSwitchesPanel(perifs: PeripheralsManager): HTMLElement 
 
       rowsHtml += `
         <div class="msw-row">
-          <div class="msw-port-label">${portHex}</div>
+          <div class="msw-port-label">${portHex} (${val.toString(16).padStart(2, '0').toUpperCase()}H)</div>
           <div class="msw-rail">
             ${switchesRow}
           </div>
@@ -44,7 +50,7 @@ export function createDipSwitchesPanel(perifs: PeripheralsManager): HTMLElement 
         <div class="msw-header-bar">
           <span class="msw-range-lbl">Puertos ${baseHex} - ${endHex}</span>
           <button class="msw-btn-cambiar" id="btn-msw-cambiar">cambiar</button>
-          <input type="text" class="port-edit-inline" id="edit-msw-port" value="${basePort.toString(16).padStart(2, '0').toUpperCase()}" style="display: none;" maxlength="3" />
+          <input type="text" class="port-edit-inline" id="edit-msw-port" value="${basePort.toString(16).padStart(2, '0').toUpperCase()}" style="display: none; width: 45px;" maxlength="3" />
           <div class="msw-num-controls">
             <span>Nº</span>
             <input type="number" id="num-msw-count" value="${numPorts}" min="1" max="16" />
@@ -79,10 +85,7 @@ export function createDipSwitchesPanel(perifs: PeripheralsManager): HTMLElement 
       inputPort.select();
     });
 
-    let applied = false;
     const applyChange = () => {
-      if (applied) return;
-      applied = true;
       const raw = inputPort.value.trim().replace(/h$/i, '');
       const parsed = parseInt(raw, 16);
       if (!isNaN(parsed) && parsed >= 0 && parsed <= 255) {
@@ -95,7 +98,6 @@ export function createDipSwitchesPanel(perifs: PeripheralsManager): HTMLElement 
       if (e.key === 'Enter') {
         applyChange();
       } else if (e.key === 'Escape') {
-        applied = true;
         render();
       }
     });
@@ -111,12 +113,12 @@ export function createDipSwitchesPanel(perifs: PeripheralsManager): HTMLElement 
     });
   };
 
-  const oldOnState = perifs.onStateChange;
-  perifs.onStateChange = (st) => {
-    if (oldOnState) oldOnState(st);
-    render();
-  };
+  const unsub = perifs.subscribe(() => render());
   render();
 
-  return panel;
+  return {
+    element: panel,
+    update: render,
+    destroy: () => unsub()
+  };
 }

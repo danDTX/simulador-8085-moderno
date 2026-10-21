@@ -1,6 +1,9 @@
 import { Intel8085 } from '../../core/cpu8085.js';
 
-export function createMemoryPanel(cpu: Intel8085): { element: HTMLElement; update: () => void } {
+export function createMemoryPanel(
+  cpu: Intel8085,
+  onMemoryEdit?: (addr: number) => void
+): { element: HTMLElement; update: () => void } {
   const panel = document.createElement('div');
   panel.className = 'panel-memory';
 
@@ -112,6 +115,57 @@ export function createMemoryPanel(cpu: Intel8085): { element: HTMLElement; updat
   panel.querySelector('#btn-mem-sp')?.addEventListener('click', () => jumpTo(cpu.regs.sp));
   panel.querySelector('#btn-mem-hl')?.addEventListener('click', () => jumpTo((cpu.regs.h << 8) | cpu.regs.l));
   panel.querySelector('#btn-mem-vram')?.addEventListener('click', () => jumpTo(0xE000));
+
+  tbody.addEventListener('dblclick', (e: MouseEvent) => {
+    const cell = (e.target as HTMLElement).closest('.mem-cell') as HTMLElement;
+    if (!cell) return;
+    const addr = parseInt(cell.getAttribute('data-addr') || '', 10);
+    if (isNaN(addr)) return;
+
+    const currentVal = cpu.readByte(addr).toString(16).padStart(2, '0').toUpperCase();
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 2;
+    input.value = currentVal;
+    input.className = 'mem-edit-input';
+    input.style.width = '24px';
+    input.style.textAlign = 'center';
+    input.style.fontFamily = 'monospace';
+    input.style.fontSize = '11px';
+    input.style.background = '#0d1117';
+    input.style.color = '#58a6ff';
+    input.style.border = '1px solid #58a6ff';
+
+    let committed = false;
+    const commit = () => {
+      if (committed) return;
+      committed = true;
+      const parsed = parseInt(input.value.trim(), 16);
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= 255) {
+        cpu.writeByte(addr, parsed);
+      }
+      update();
+      if (onMemoryEdit) onMemoryEdit(addr);
+    };
+
+    input.addEventListener('keydown', (ke) => {
+      if (ke.key === 'Enter') {
+        commit();
+      } else if (ke.key === 'Escape') {
+        committed = true;
+        update();
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      commit();
+    });
+
+    cell.innerHTML = '';
+    cell.appendChild(input);
+    input.focus();
+    input.select();
+  });
 
   update();
   return { element: panel, update };

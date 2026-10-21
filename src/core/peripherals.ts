@@ -74,8 +74,30 @@ export class PeripheralsManager {
   public onStateChange?: (state: PeripheralsState) => void;
   public onTerminalUpdate?: (addr: number, charCode: number) => void;
 
+  private listeners: Set<(state: PeripheralsState) => void> = new Set();
+  private terminalListeners: Set<() => void> = new Set();
+
   constructor(private cpu: Intel8085) {
     this.attachToCpu();
+  }
+
+  public subscribe(listener: (state: PeripheralsState) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  public subscribeTerminal(listener: () => void): () => void {
+    this.terminalListeners.add(listener);
+    return () => this.terminalListeners.delete(listener);
+  }
+
+  public notifyTerminal(): void {
+    for (const l of this.terminalListeners) {
+      try { l(); } catch (e) { console.error(e); }
+    }
+    if (this.onTerminalUpdate) {
+      this.onTerminalUpdate(0, 0);
+    }
   }
 
   public attachToCpu(): void {
@@ -109,9 +131,7 @@ export class PeripheralsManager {
       const vramStart = this.state.terminalVramStart;
       const vramEnd = vramStart + (this.state.terminalRows * this.state.terminalCols);
       if (addr >= vramStart && addr < vramEnd) {
-        if (this.onTerminalUpdate) {
-          this.onTerminalUpdate(addr - vramStart, val);
-        }
+        this.notifyTerminal();
       }
     };
 
@@ -178,7 +198,11 @@ export class PeripheralsManager {
 
   public releaseKey(): void {
     this.state.currentKeyPressed = 0x00;
-    this.state.portsIn[this.state.keyboardPort] = 0x00;
+    if (this.state.keyboardPort === 0) {
+      this.state.portsIn[0] = this.state.dipSwitches;
+    } else {
+      this.state.portsIn[this.state.keyboardPort] = 0x00;
+    }
     this.state.currentKeyLabel = 'NULL';
     this.notify();
   }
@@ -259,11 +283,15 @@ export class PeripheralsManager {
     this.state.currentKeyPressed = 0x00;
     this.state.currentKeyLabel = 'NULL';
     this.notify();
+    this.notifyTerminal();
   }
 
-  private notify(): void {
+  public notify(): void {
+    for (const listener of this.listeners) {
+      try { listener(this.state); } catch (e) { console.error(e); }
+    }
     if (this.onStateChange) {
-      this.onStateChange(this.state);
+      try { this.onStateChange(this.state); } catch (e) { console.error(e); }
     }
   }
 }

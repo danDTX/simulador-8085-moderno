@@ -239,6 +239,17 @@ export class MDIWindowManager {
     this.windows.delete(id);
   }
 
+  public setWindowTitle(id: string, title: string): void {
+    const w = this.windows.get(id);
+    if (!w) return;
+    w.opts.title = title;
+    const titleSpan = w.elem.querySelector('.mdi-title');
+    if (titleSpan) titleSpan.textContent = title;
+    if (w.taskbarBtn) {
+      w.taskbarBtn.innerHTML = `${w.opts.icon ? w.opts.icon + ' ' : ''}${title}`;
+    }
+  }
+
   public getWindow(id: string): HTMLElement | undefined {
     return this.windows.get(id)?.elem;
   }

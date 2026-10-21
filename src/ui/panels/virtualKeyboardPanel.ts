@@ -1,6 +1,12 @@
 import { PeripheralsManager } from '../../core/peripherals.js';
 
-export function createVirtualKeyboardPanel(perifs: PeripheralsManager): HTMLElement {
+export interface VirtualKeyboardInstance {
+  element: HTMLElement;
+  update: () => void;
+  destroy: () => void;
+}
+
+export function createVirtualKeyboardPanel(perifs: PeripheralsManager): VirtualKeyboardInstance {
   const panel = document.createElement('div');
   panel.className = 'panel-virtual-keyboard';
 
@@ -159,16 +165,12 @@ export function createVirtualKeyboardPanel(perifs: PeripheralsManager): HTMLElem
       const finalKey = (isCapsOn && rawKey.length === 1) ? rawKey.toUpperCase() : rawKey;
       btn.classList.add('vk-key-pressed');
       perifs.pressKey(finalKey);
-      displayKey.textContent = perifs.state.currentKeyLabel;
-      displayKey.classList.add('key-active');
     };
 
     const handleRelease = (e: Event) => {
       e.preventDefault();
       btn.classList.remove('vk-key-pressed');
       perifs.releaseKey();
-      displayKey.textContent = 'NULL';
-      displayKey.classList.remove('key-active');
     };
 
     btn.addEventListener('pointerdown', handlePress);
@@ -176,40 +178,29 @@ export function createVirtualKeyboardPanel(perifs: PeripheralsManager): HTMLElem
     btn.addEventListener('pointerleave', handleRelease);
   });
 
-  // Listen to physical keyboard events globally when active!
-  window.addEventListener('keydown', (e: KeyboardEvent) => {
-    // Avoid interfering if focus is in an input or textarea
-    if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
-      return;
-    }
-
-    let char = e.key;
-    if (char === 'Enter') char = '\r';
-    if (char === 'Escape') char = '\x1b';
-    if (char === 'Backspace') char = '\b';
-    if (char === 'Tab') char = '\t';
-
-    if (char.length === 1 || char === '\r' || char === '\x1b' || char === '\b' || char === '\t') {
-      perifs.pressKey(char);
-      displayKey.textContent = perifs.state.currentKeyLabel;
-      displayKey.classList.add('key-active');
-
-      // Highlight corresponding virtual key visually
-      const matchingBtn = panel.querySelector(`.vk-key[data-key="${char.toUpperCase()}"]`) ||
-                          panel.querySelector(`.vk-key[data-key="${char}"]`);
-      matchingBtn?.classList.add('vk-key-pressed');
-    }
-  });
-
-  window.addEventListener('keyup', (e: KeyboardEvent) => {
-    if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
-      return;
-    }
-    perifs.releaseKey();
-    displayKey.textContent = 'NULL';
-    displayKey.classList.remove('key-active');
+  const render = () => {
+    const label = perifs.state.currentKeyLabel;
+    displayKey.textContent = label;
     panel.querySelectorAll('.vk-key-pressed').forEach(b => b.classList.remove('vk-key-pressed'));
-  });
 
-  return panel;
+    if (label !== 'NULL' && perifs.state.currentKeyPressed !== 0) {
+      displayKey.classList.add('key-active');
+      const matchingBtn = panel.querySelector(`.vk-key[data-key="${label.toUpperCase()}"]`) ||
+                          panel.querySelector(`.vk-key[data-key="${label}"]`);
+      matchingBtn?.classList.add('vk-key-pressed');
+    } else {
+      displayKey.classList.remove('key-active');
+    }
+  };
+
+  const unsub = perifs.subscribe(render);
+  render();
+
+  return {
+    element: panel,
+    update: render,
+    destroy: () => {
+      unsub();
+    }
+  };
 }

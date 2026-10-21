@@ -1,11 +1,24 @@
 import { DocsHelper, InstructionDoc, RegisterDoc } from '../core/docsHelper.js';
 
+export interface EditorTab {
+  id: string;
+  name: string;
+  code: string;
+  isDirty: boolean;
+}
+
 export interface EditorCallbacks {
   onChange?: (code: string) => void;
+  onTabChange?: (filename: string, code: string) => void;
+  onOpenDelayGen?: () => void;
   onAssemble?: () => void;
   onStep?: () => void;
+  onStepOver?: () => void;
+  onStepBack?: () => void;
   onRun?: () => void;
+  onReset?: () => void;
   onSave?: () => void;
+  onToggleBreakpoint?: (line: number, active: boolean) => void;
 }
 
 export class CodeEditor {
@@ -14,10 +27,18 @@ export class CodeEditor {
   private lineNumbers: HTMLElement;
   private highlightOverlay: HTMLElement;
   private errorBadge: HTMLElement;
+  private filenameBadge: HTMLElement;
   private hoverTooltip: HTMLElement;
   private autocompleteBox: HTMLElement;
+  private tabsScrollElem: HTMLElement;
   private callbacks: EditorCallbacks;
   private pcLine: number = -1;
+  public breakpoints: Set<number> = new Set();
+  public isDirty: boolean = false;
+
+  // Tabs state
+  public tabs: EditorTab[] = [];
+  public activeTabId: string = '';
 
   // Autocomplete state
   private acItems: { label: string; detail: string; insertText: string }[] = [];
@@ -32,13 +53,22 @@ export class CodeEditor {
 
     this.container.innerHTML = `
       <div class="editor-wrapper">
+        <div class="editor-tab-bar" id="editor-tab-bar">
+          <div class="editor-tabs-scroll" id="editor-tabs-scroll"></div>
+          <button id="btn-tab-add" class="tab-add-btn" title="Nueva Pestaña (+)">+</button>
+        </div>
         <div class="editor-toolbar">
           <button id="btn-assemble" class="tb-btn" title="Ensamblar a Memoria (F9)">⚙️ Ensamblar (F9)</button>
           <button id="btn-step" class="tb-btn" title="Paso a Paso (F7)">⏩ Paso (F7)</button>
+          <button id="btn-step-over" class="tb-btn" title="Paso sin Entrar / Step Over (F8)">⤴️ Over (F8)</button>
+          <button id="btn-step-back" class="tb-btn" title="Paso Atrás / Step Back (Shift+F7)">◁ Back</button>
           <button id="btn-run" class="tb-btn" title="Ejecutar Continuo (F5)">▶️ Ejecutar (F5)</button>
           <button id="btn-pause" class="tb-btn" title="Pausar">⏸️ Pausar</button>
           <button id="btn-reset" class="tb-btn" title="Reiniciar CPU">🔄 Reset</button>
           <button id="btn-format" class="tb-btn" title="Formatear Código (Shift+Alt+F)">✨ Formatear</button>
+          <button id="btn-delay-gen" class="tb-btn" title="Asistente Calculador de Retardos">⏱️ Retardo</button>
+          <div class="tb-divider"></div>
+          <span id="editor-filename" class="editor-filename-badge" title="Archivo activo">📄 programa.asm</span>
           <div class="tb-divider"></div>
           <span id="editor-status" class="editor-status">Listo</span>
         </div>
@@ -48,7 +78,7 @@ export class CodeEditor {
           </div>
           <div class="editor-code-area">
             <pre class="editor-highlight" id="editor-highlight" aria-hidden="true"></pre>
-            <textarea class="editor-textarea" id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+            <textarea class="editor-textarea" id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" wrap="off"></textarea>
             <div class="editor-hover-tooltip" id="editor-hover-tooltip" style="display: none;"></div>
             <div class="editor-autocomplete-dropdown" id="editor-autocomplete" style="display: none;"></div>
           </div>
@@ -60,19 +90,76 @@ export class CodeEditor {
     this.lineNumbers = this.container.querySelector('#editor-line-numbers') as HTMLElement;
     this.highlightOverlay = this.container.querySelector('#editor-highlight') as HTMLElement;
     this.errorBadge = this.container.querySelector('#editor-status') as HTMLElement;
+    this.filenameBadge = this.container.querySelector('#editor-filename') as HTMLElement;
     this.hoverTooltip = this.container.querySelector('#editor-hover-tooltip') as HTMLElement;
     this.autocompleteBox = this.container.querySelector('#editor-autocomplete') as HTMLElement;
+    this.tabsScrollElem = this.container.querySelector('#editor-tabs-scroll') as HTMLElement;
 
+    // Initialize first tab
+    const initialTab: EditorTab = {
+      id: 'tab_' + Date.now(),
+      name: 'programa.asm',
+      code: initialCode,
+      isDirty: false
+    };
+    this.tabs = [initialTab];
+    this.activeTabId = initialTab.id;
     this.textarea.value = initialCode;
 
+    this.renderTabs();
     this.setupEvents();
     this.setupHoverDocs();
     this.setupAutocomplete();
     this.updateEditor();
   }
 
+  public renderTabs(): void {
+    if (!this.tabsScrollElem) return;
+    let html = '';
+    for (const tab of this.tabs) {
+      const isActive = (tab.id === this.activeTabId);
+      const dirtyDot = tab.isDirty ? '<span class="editor-tab-dirty">•</span>' : '';
+      html += `
+        <div class="editor-tab ${isActive ? 'active' : ''}" data-tabid="${tab.id}" title="${tab.name}">
+          <span>📄 ${tab.name}</span>
+          ${dirtyDot}
+          <span class="editor-tab-close" data-closeid="${tab.id}" title="Cerrar pestaña">✕</span>
+        </div>
+      `;
+    }
+    this.tabsScrollElem.innerHTML = html;
+  }
+
   private setupEvents(): void {
+    // Tab Bar click and add
+    this.tabsScrollElem.addEventListener('click', (e) => {
+      const closeTarget = (e.target as HTMLElement).closest('.editor-tab-close') as HTMLElement;
+      if (closeTarget) {
+        e.stopPropagation();
+        const closeId = closeTarget.getAttribute('data-closeid');
+        if (closeId) this.closeTab(closeId);
+        return;
+      }
+      const tabTarget = (e.target as HTMLElement).closest('.editor-tab') as HTMLElement;
+      if (tabTarget) {
+        const tabId = tabTarget.getAttribute('data-tabid');
+        if (tabId) this.switchTab(tabId);
+      }
+    });
+
+    this.container.querySelector('#btn-tab-add')?.addEventListener('click', () => {
+      this.newTab();
+    });
+
     this.textarea.addEventListener('input', () => {
+      this.isDirty = true;
+      const curTab = this.tabs.find(t => t.id === this.activeTabId);
+      if (curTab) {
+        curTab.code = this.textarea.value;
+        curTab.isDirty = true;
+      }
+      this.renderTabs();
+      this.setStatus('✏️ Modificado (se compilará al ejecutar)');
       this.updateEditor();
       this.checkAutocomplete();
       if (this.callbacks.onChange) {
@@ -148,15 +235,34 @@ export class CodeEditor {
       if (e.key === 'F9') {
         e.preventDefault();
         if (this.callbacks.onAssemble) this.callbacks.onAssemble();
+      } else if (e.key === 'F8') {
+        e.preventDefault();
+        if (this.callbacks.onStepOver) this.callbacks.onStepOver();
+      } else if (e.key === 'F7' && e.shiftKey) {
+        e.preventDefault();
+        if (this.callbacks.onStepBack) this.callbacks.onStepBack();
       } else if (e.key === 'F7') {
         e.preventDefault();
         if (this.callbacks.onStep) this.callbacks.onStep();
       } else if (e.key === 'F5') {
         e.preventDefault();
         if (this.callbacks.onRun) this.callbacks.onRun();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        this.toggleBreakpoint(this.getCursorLine());
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (this.callbacks.onSave) this.callbacks.onSave();
+      }
+    });
+
+    // Gutter click for Breakpoints
+    this.lineNumbers.addEventListener('click', (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('.line-number') as HTMLElement;
+      if (!target) return;
+      const line = parseInt(target.getAttribute('data-line') || '0', 10);
+      if (line > 0) {
+        this.toggleBreakpoint(line);
       }
     });
 
@@ -167,14 +273,26 @@ export class CodeEditor {
     this.container.querySelector('#btn-step')?.addEventListener('click', () => {
       if (this.callbacks.onStep) this.callbacks.onStep();
     });
+    this.container.querySelector('#btn-step-over')?.addEventListener('click', () => {
+      if (this.callbacks.onStepOver) this.callbacks.onStepOver();
+    });
+    this.container.querySelector('#btn-step-back')?.addEventListener('click', () => {
+      if (this.callbacks.onStepBack) this.callbacks.onStepBack();
+    });
     this.container.querySelector('#btn-run')?.addEventListener('click', () => {
       if (this.callbacks.onRun) this.callbacks.onRun();
     });
     this.container.querySelector('#btn-pause')?.addEventListener('click', () => {
       if (this.callbacks.onRun) this.callbacks.onRun();
     });
+    this.container.querySelector('#btn-reset')?.addEventListener('click', () => {
+      if (this.callbacks.onReset) this.callbacks.onReset();
+    });
     this.container.querySelector('#btn-format')?.addEventListener('click', () => {
       this.formatDocument();
+    });
+    this.container.querySelector('#btn-delay-gen')?.addEventListener('click', () => {
+      if (this.callbacks.onOpenDelayGen) this.callbacks.onOpenDelayGen();
     });
   }
 
@@ -238,9 +356,11 @@ export class CodeEditor {
       const y = e.clientY - rect.top + this.textarea.scrollTop;
 
       const lineHeight = parseFloat(getComputedStyle(this.textarea).lineHeight) || 20;
-      const charWidth = 7.8;
-      const lineIndex = Math.floor(y / lineHeight);
-      const colIndex = Math.floor(x / charWidth);
+      const paddingTop = parseFloat(getComputedStyle(this.textarea).paddingTop) || 8;
+      const paddingLeft = parseFloat(getComputedStyle(this.textarea).paddingLeft) || 12;
+      const charWidth = 7.8 * (lineHeight / 20);
+      const lineIndex = Math.floor((y - paddingTop) / lineHeight);
+      const colIndex = Math.floor((x - paddingLeft) / charWidth);
 
       const lines = this.textarea.value.split('\n');
       if (lineIndex >= 0 && lineIndex < lines.length) {
@@ -602,30 +722,206 @@ export class CodeEditor {
     return this.textarea.value;
   }
 
+  public syncScroll(): void {
+    this.highlightOverlay.scrollTop = this.textarea.scrollTop;
+    this.highlightOverlay.scrollLeft = this.textarea.scrollLeft;
+    this.lineNumbers.scrollTop = this.textarea.scrollTop;
+  }
+
   public setValue(code: string): void {
     this.textarea.value = code;
+    this.isDirty = false;
+    const cur = this.tabs.find(t => t.id === this.activeTabId);
+    if (cur) {
+      cur.code = code;
+      cur.isDirty = false;
+    }
+    this.renderTabs();
     this.updateEditor();
   }
 
-  public setStatus(msg: string, isError: boolean = false): void {
+  public setFileName(name: string): void {
+    if (this.filenameBadge) {
+      this.filenameBadge.textContent = `📄 ${name}`;
+      this.filenameBadge.title = `Archivo activo: ${name}`;
+    }
+    const cur = this.tabs.find(t => t.id === this.activeTabId);
+    if (cur) {
+      cur.name = name;
+      this.renderTabs();
+    }
+  }
+
+  public openTab(name: string, code: string): void {
+    const existing = this.tabs.find(t => t.name === name);
+    if (existing) {
+      existing.code = code;
+      this.switchTab(existing.id);
+      return;
+    }
+
+    if (this.tabs.length === 1 && !this.tabs[0].isDirty && this.tabs[0].code.trim().length <= 40 && this.tabs[0].name.startsWith('sin_titulo')) {
+      this.tabs[0].name = name;
+      this.tabs[0].code = code;
+      this.tabs[0].isDirty = false;
+      this.switchTab(this.tabs[0].id);
+      return;
+    }
+
+    const newTab: EditorTab = {
+      id: 'tab_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      name,
+      code,
+      isDirty: false
+    };
+    this.tabs.push(newTab);
+    this.switchTab(newTab.id);
+  }
+
+  public switchTab(id: string): void {
+    const current = this.tabs.find(t => t.id === this.activeTabId);
+    if (current) {
+      current.code = this.textarea.value;
+      current.isDirty = this.isDirty;
+    }
+
+    const target = this.tabs.find(t => t.id === id);
+    if (!target) return;
+
+    this.activeTabId = target.id;
+    this.textarea.value = target.code;
+    this.isDirty = target.isDirty;
+    if (this.filenameBadge) {
+      this.filenameBadge.textContent = `📄 ${target.name}`;
+      this.filenameBadge.title = `Archivo activo: ${target.name}`;
+    }
+    this.renderTabs();
+    this.updateEditor();
+    if (this.callbacks.onTabChange) {
+      this.callbacks.onTabChange(target.name, target.code);
+    }
+  }
+
+  public closeTab(id: string): void {
+    const tabIdx = this.tabs.findIndex(t => t.id === id);
+    if (tabIdx === -1) return;
+
+    const tab = this.tabs[tabIdx];
+    if (tab.isDirty) {
+      if (!confirm(`El archivo "${tab.name}" tiene cambios no guardados. ¿Deseas cerrarlo de todos modos?`)) {
+        return;
+      }
+    }
+
+    this.tabs.splice(tabIdx, 1);
+
+    if (this.tabs.length === 0) {
+      const newTab: EditorTab = {
+        id: 'tab_' + Date.now(),
+        name: 'sin_titulo.asm',
+        code: '.org 0100H\n\nINICIO:\n    HLT\n',
+        isDirty: false
+      };
+      this.tabs.push(newTab);
+      this.switchTab(newTab.id);
+    } else {
+      const nextTab = this.tabs[Math.max(0, tabIdx - 1)];
+      this.switchTab(nextTab.id);
+    }
+  }
+
+  public newTab(name?: string, code?: string): void {
+    const count = this.tabs.length + 1;
+    const tabName = name || `sin_titulo_${count}.asm`;
+    const tabCode = code || `.org 0100H\n\nINICIO:\n    HLT\n`;
+    const newTab: EditorTab = {
+      id: 'tab_' + Date.now(),
+      name: tabName,
+      code: tabCode,
+      isDirty: false
+    };
+    this.tabs.push(newTab);
+    this.switchTab(newTab.id);
+  }
+
+  public setStatus(msg: string, isError: boolean = false, isWarning: boolean = false): void {
     this.errorBadge.textContent = msg;
-    this.errorBadge.className = `editor-status ${isError ? 'status-error' : 'status-ok'}`;
+    const cls = isError ? 'status-error' : isWarning ? 'status-warning' : 'status-ok';
+    this.errorBadge.className = `editor-status ${cls}`;
+    this.errorBadge.title = msg;
   }
 
   public setExecutionLine(lineNum: number): void {
+    if (this.pcLine === lineNum) return;
+    const oldLine = this.pcLine;
     this.pcLine = lineNum;
+
+    // Fast-path: Update only the targeted lines in gutter and highlight overlay (Zero full-file regex execution)
+    if (oldLine > 0) {
+      const oldGutter = this.lineNumbers.querySelector(`[data-line="${oldLine}"]`);
+      if (oldGutter) {
+        oldGutter.classList.remove('active-pc-line');
+        const hasBp = this.breakpoints.has(oldLine);
+        oldGutter.textContent = hasBp ? '🔴' : `${oldLine}`;
+      }
+      const oldCodeLine = this.highlightOverlay.children[oldLine - 1];
+      if (oldCodeLine) oldCodeLine.classList.remove('code-line-pc');
+    }
+
+    if (lineNum > 0) {
+      const newGutter = this.lineNumbers.querySelector(`[data-line="${lineNum}"]`);
+      if (newGutter) {
+        newGutter.classList.add('active-pc-line');
+        newGutter.textContent = '▶';
+      }
+      const newCodeLine = this.highlightOverlay.children[lineNum - 1];
+      if (newCodeLine) newCodeLine.classList.add('code-line-pc');
+    }
+  }
+
+  public toggleBreakpoint(line: number): boolean {
+    const hasNow = !this.breakpoints.has(line);
+    if (hasNow) {
+      this.breakpoints.add(line);
+    } else {
+      this.breakpoints.delete(line);
+    }
+    const gutter = this.lineNumbers.querySelector(`[data-line="${line}"]`);
+    if (gutter) {
+      gutter.classList.toggle('has-breakpoint', hasNow);
+      const isPc = (line === this.pcLine);
+      gutter.textContent = hasNow ? '🔴' : (isPc ? '▶' : `${line}`);
+    }
+    if (this.callbacks.onToggleBreakpoint) {
+      this.callbacks.onToggleBreakpoint(line, hasNow);
+    }
+    return hasNow;
+  }
+
+  public setBreakpoints(lines: Set<number>): void {
+    this.breakpoints = new Set(lines);
     this.updateEditor();
+  }
+
+  public getCursorLine(): number {
+    const pos = this.textarea.selectionStart;
+    const lines = this.textarea.value.substring(0, pos).split('\n');
+    return lines.length;
   }
 
   private updateEditor(): void {
     const text = this.textarea.value;
     const lines = text.split('\n');
 
-    // Update Line Numbers
+    // Update Line Numbers with Breakpoints
     let gutterHtml = '';
     for (let i = 1; i <= lines.length; i++) {
       const isPc = (i === this.pcLine);
-      gutterHtml += `<div class="line-number ${isPc ? 'active-pc-line' : ''}">${isPc ? '▶' : i}</div>`;
+      const hasBp = this.breakpoints.has(i);
+      const icon = hasBp ? '🔴' : (isPc ? '▶' : i);
+      const cls = `line-number ${isPc ? 'active-pc-line' : ''} ${hasBp ? 'has-breakpoint' : ''}`;
+      const title = hasBp ? 'Punto de interrupción activo (clic para quitar)' : 'Clic para alternar breakpoint';
+      gutterHtml += `<div class="${cls}" data-line="${i}" title="${title}">${icon}</div>`;
     }
     this.lineNumbers.innerHTML = gutterHtml;
 
@@ -634,7 +930,7 @@ export class CodeEditor {
     for (let i = 0; i < lines.length; i++) {
       const isPc = (i + 1 === this.pcLine);
       const highlightedLine = this.highlightLine(lines[i]);
-      highlighted += `<div class="code-line ${isPc ? 'code-line-pc' : ''}">${highlightedLine || ' '}</div>`;
+      highlighted += `<div class="code-line ${isPc ? 'code-line-pc' : ''}">${highlightedLine || '&nbsp;'}</div>`;
     }
     this.highlightOverlay.innerHTML = highlighted;
 

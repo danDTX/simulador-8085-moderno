@@ -1,6 +1,12 @@
 import { PeripheralsManager } from '../../core/peripherals.js';
 
-export function createLedsPanel(perifs: PeripheralsManager): HTMLElement {
+export interface LedsInstance {
+  element: HTMLElement;
+  update: () => void;
+  destroy: () => void;
+}
+
+export function createLedsPanel(perifs: PeripheralsManager): LedsInstance {
   const panel = document.createElement('div');
   panel.className = 'panel-leds-multi';
 
@@ -22,7 +28,7 @@ export function createLedsPanel(perifs: PeripheralsManager): HTMLElement {
       for (let b = 7; b >= 0; b--) {
         const isOn = ((val >> b) & 1) === 1;
         ledsRow += `
-          <div class="mled-cell">
+          <div class="mled-cell" title="Puerto ${portHex}, Bit ${b}: ${isOn ? '1 (ON)' : '0 (OFF)'}">
             <div class="mled-bulb ${isOn ? 'mled-on' : 'mled-off'}"></div>
           </div>
         `;
@@ -30,7 +36,7 @@ export function createLedsPanel(perifs: PeripheralsManager): HTMLElement {
 
       rowsHtml += `
         <div class="mled-row">
-          <div class="mled-port-label">${portHex}</div>
+          <div class="mled-port-label">${portHex} (${val.toString(16).padStart(2, '0').toUpperCase()}H)</div>
           <div class="mled-bits-rack">${ledsRow}</div>
         </div>
       `;
@@ -42,7 +48,7 @@ export function createLedsPanel(perifs: PeripheralsManager): HTMLElement {
         <div class="mled-header-bar">
           <span class="mled-range-lbl">Puertos ${baseHex} - ${endHex}</span>
           <button class="mled-btn-cambiar" id="btn-mled-cambiar">cambiar</button>
-          <input type="text" class="port-edit-inline" id="edit-mled-port" value="${basePort.toString(16).padStart(2, '0').toUpperCase()}" style="display: none;" maxlength="3" />
+          <input type="text" class="port-edit-inline" id="edit-mled-port" value="${basePort.toString(16).padStart(2, '0').toUpperCase()}" style="display: none; width: 45px;" maxlength="3" />
           <div class="mled-num-controls">
             <span>Nº</span>
             <input type="number" id="num-mled-count" value="${numPorts}" min="1" max="16" />
@@ -67,10 +73,7 @@ export function createLedsPanel(perifs: PeripheralsManager): HTMLElement {
       inputPort.select();
     });
 
-    let applied = false;
     const applyChange = () => {
-      if (applied) return;
-      applied = true;
       const raw = inputPort.value.trim().replace(/h$/i, '');
       const parsed = parseInt(raw, 16);
       if (!isNaN(parsed) && parsed >= 0 && parsed <= 255) {
@@ -83,7 +86,6 @@ export function createLedsPanel(perifs: PeripheralsManager): HTMLElement {
       if (e.key === 'Enter') {
         applyChange();
       } else if (e.key === 'Escape') {
-        applied = true;
         render();
       }
     });
@@ -99,12 +101,12 @@ export function createLedsPanel(perifs: PeripheralsManager): HTMLElement {
     });
   };
 
-  const oldOnState = perifs.onStateChange;
-  perifs.onStateChange = (st) => {
-    if (oldOnState) oldOnState(st);
-    render();
-  };
+  const unsub = perifs.subscribe(() => render());
   render();
 
-  return panel;
+  return {
+    element: panel,
+    update: render,
+    destroy: () => unsub()
+  };
 }

@@ -1,6 +1,12 @@
 import { PeripheralsManager } from '../../core/peripherals.js';
 
-export function createDisplays15Panel(perifs: PeripheralsManager): HTMLElement {
+export interface Displays15Instance {
+  element: HTMLElement;
+  update: () => void;
+  destroy: () => void;
+}
+
+export function createDisplays15Panel(perifs: PeripheralsManager): Displays15Instance {
   const panel = document.createElement('div');
   panel.className = 'panel-displays-15-classic';
 
@@ -18,6 +24,9 @@ export function createDisplays15Panel(perifs: PeripheralsManager): HTMLElement {
       const pHigh = (basePort + (i * 2) + 1) & 0xff;
       const lowByte = perifs.state.portsOut[pLow];
       const highByte = perifs.state.portsOut[pHigh];
+
+      const pLowHex = pLow.toString(16).padStart(2, '0').toUpperCase() + 'H';
+      const pHighHex = pHigh.toString(16).padStart(2, '0').toUpperCase() + 'H';
 
       // Low byte segments (identical mapping to 7-segment):
       const segF = (lowByte & (1 << 0)) !== 0;
@@ -39,7 +48,8 @@ export function createDisplays15Panel(perifs: PeripheralsManager): HTMLElement {
       const segM = (highByte & (1 << 6)) !== 0;  // Lower vertical
 
       digitsHtml += `
-        <div class="disp15-digit-box">
+        <div class="disp15-digit-box" title="Puertos ${pLowHex} / ${pHighHex}">
+          <div class="disp7-port-label">${pLowHex}/${pHighHex}</div>
           <svg viewBox="0 0 50 80" class="disp15-svg">
             <!-- Top A -->
             <polygon points="13,8 37,8 33,13 17,13" class="d15-seg ${segA ? 'd15-on' : 'd15-off'}" />
@@ -89,7 +99,7 @@ export function createDisplays15Panel(perifs: PeripheralsManager): HTMLElement {
         <div class="disp15-bottom-bar">
           <span class="disp15-associated-lbl">Asociado a puertos ${baseHex} - ${endHex}</span>
           <button class="disp15-btn-cambiar" id="btn-disp15-cambiar">cambiar</button>
-          <input type="text" class="port-edit-inline" id="edit-disp15-port" value="${basePort.toString(16).padStart(2, '0').toUpperCase()}" style="display: none;" maxlength="3" />
+          <input type="text" class="port-edit-inline" id="edit-disp15-port" value="${basePort.toString(16).padStart(2, '0').toUpperCase()}" style="display: none; width: 45px;" maxlength="3" />
         </div>
       </div>
     `;
@@ -105,10 +115,7 @@ export function createDisplays15Panel(perifs: PeripheralsManager): HTMLElement {
       inputPort.select();
     });
 
-    let applied = false;
     const applyChange = () => {
-      if (applied) return;
-      applied = true;
       const raw = inputPort.value.trim().replace(/h$/i, '');
       const parsed = parseInt(raw, 16);
       if (!isNaN(parsed) && parsed >= 0 && parsed <= 240) {
@@ -121,19 +128,18 @@ export function createDisplays15Panel(perifs: PeripheralsManager): HTMLElement {
       if (e.key === 'Enter') {
         applyChange();
       } else if (e.key === 'Escape') {
-        applied = true;
         render();
       }
     });
     inputPort?.addEventListener('blur', applyChange);
   };
 
-  const oldOnState = perifs.onStateChange;
-  perifs.onStateChange = (st) => {
-    if (oldOnState) oldOnState(st);
-    render();
-  };
+  const unsub = perifs.subscribe(() => render());
   render();
 
-  return panel;
+  return {
+    element: panel,
+    update: render,
+    destroy: () => unsub()
+  };
 }

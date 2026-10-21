@@ -1,4 +1,4 @@
-import { CpuRegisters, CpuFlags, InterruptState } from './types.js';
+import { CpuRegisters, CpuFlags, InterruptState, CpuSnapshot, MemWriteRecord } from './types.js';
 
 export class Intel8085 {
   public regs: CpuRegisters = {
@@ -39,6 +39,12 @@ export class Intel8085 {
   public totalCycles: number = 0;
   public sidBit: boolean = false;
   public sodBit: boolean = false;
+
+  public breakpoints: Set<number> = new Set();
+  public recordHistory: boolean = true;
+  private historyBuffer: CpuSnapshot[] = [];
+  public static readonly MAX_HISTORY: number = 64;
+  private currentStepMemWrites: MemWriteRecord[] = [];
 
   public onPortRead?: (port: number) => number;
   public onPortWrite?: (port: number, val: number) => void;
@@ -92,6 +98,56 @@ export class Intel8085 {
     this.totalCycles = 0;
     this.sidBit = false;
     this.sodBit = false;
+    this.clearHistory();
+  }
+
+  public toggleBreakpoint(addr: number): boolean {
+    const a = addr & 0xffff;
+    if (this.breakpoints.has(a)) {
+      this.breakpoints.delete(a);
+      return false;
+    } else {
+      this.breakpoints.add(a);
+      return true;
+    }
+  }
+
+  public hasBreakpoint(addr: number): boolean {
+    return this.breakpoints.has(addr & 0xffff);
+  }
+
+  public clearBreakpoints(): void {
+    this.breakpoints.clear();
+  }
+
+  public stepBack(): boolean {
+    if (this.historyBuffer.length === 0) return false;
+    const snap = this.historyBuffer.pop()!;
+    // Revert memory writes in reverse order
+    for (let i = snap.memWrites.length - 1; i >= 0; i--) {
+      const w = snap.memWrites[i];
+      this.memory[w.addr] = w.prevVal;
+      if (this.onMemoryWrite) {
+        this.onMemoryWrite(w.addr, w.prevVal);
+      }
+    }
+    this.regs = { ...snap.regs };
+    this.flags = { ...snap.flags };
+    this.interrupts = { ...snap.interrupts };
+    this.halted = snap.halted;
+    this.totalCycles = snap.totalCycles;
+    this.sidBit = snap.sidBit;
+    this.sodBit = snap.sodBit;
+    return true;
+  }
+
+  public getHistoryLength(): number {
+    return this.historyBuffer.length;
+  }
+
+  public clearHistory(): void {
+    this.historyBuffer = [];
+    this.currentStepMemWrites = [];
   }
 
   public readByte(addr: number): number {
@@ -101,6 +157,9 @@ export class Intel8085 {
   public writeByte(addr: number, val: number): void {
     const a = addr & 0xffff;
     const v = val & 0xff;
+    if (this.recordHistory) {
+      this.currentStepMemWrites.push({ addr: a, prevVal: this.memory[a] });
+    }
     this.memory[a] = v;
     if (this.onMemoryWrite) {
       this.onMemoryWrite(a, v);
@@ -257,7 +316,30 @@ export class Intel8085 {
   }
 
   public step(): number {
+    let snapshot: CpuSnapshot | null = null;
+    if (this.recordHistory) {
+      snapshot = {
+        regs: { ...this.regs },
+        flags: { ...this.flags },
+        interrupts: { ...this.interrupts },
+        halted: this.halted,
+        totalCycles: this.totalCycles,
+        sidBit: this.sidBit,
+        sodBit: this.sodBit,
+        memWrites: [],
+      };
+      this.currentStepMemWrites = [];
+    }
+
     if (this.checkInterrupts()) {
+      this.totalCycles += 12;
+      if (snapshot) {
+        snapshot.memWrites = [...this.currentStepMemWrites];
+        this.historyBuffer.push(snapshot);
+        if (this.historyBuffer.length > Intel8085.MAX_HISTORY) {
+          this.historyBuffer.shift();
+        }
+      }
       return 12; // Interrupt ACK cycles
     }
 
@@ -809,6 +891,16 @@ export class Intel8085 {
     }
 
     this.totalCycles += cycles;
+    if (snapshot) {
+      snapshot.memWrites = [...this.currentStepMemWrites];
+      this.historyBuffer.push(snapshot);
+      if (this.historyBuffer.length > Intel8085.MAX_HISTORY) {
+        this.historyBuffer.shift();
+      }
+    }
     return cycles;
   }
 }
+
+export type CPU8085 = Intel8085;
+export const CPU8085 = Intel8085;

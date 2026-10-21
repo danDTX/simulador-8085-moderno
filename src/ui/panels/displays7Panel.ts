@@ -1,6 +1,12 @@
 import { PeripheralsManager } from '../../core/peripherals.js';
 
-export function createDisplays7Panel(perifs: PeripheralsManager): HTMLElement {
+export interface Displays7Instance {
+  element: HTMLElement;
+  update: () => void;
+  destroy: () => void;
+}
+
+export function createDisplays7Panel(perifs: PeripheralsManager): Displays7Instance {
   const panel = document.createElement('div');
   panel.className = 'panel-displays-7-classic';
 
@@ -15,6 +21,7 @@ export function createDisplays7Panel(perifs: PeripheralsManager): HTMLElement {
     let digitsHtml = '';
     for (let i = 0; i < numDigits; i++) {
       const port = (basePort + i) & 0xff;
+      const portHex = port.toString(16).padStart(2, '0').toUpperCase() + 'H';
       const byteVal = perifs.state.portsOut[port];
 
       // Segment mapping in 8085sim:
@@ -29,7 +36,8 @@ export function createDisplays7Panel(perifs: PeripheralsManager): HTMLElement {
       const segDP = (byteVal & (1 << 7)) !== 0;
 
       digitsHtml += `
-        <div class="disp7-digit-box">
+        <div class="disp7-digit-box" title="Puerto ${portHex} (Valor: ${byteVal.toString(16).padStart(2, '0').toUpperCase()}H)">
+          <div class="disp7-port-label">${portHex}</div>
           <svg viewBox="0 0 50 80" class="disp7-svg">
             <!-- A -->
             <polygon points="12,8 38,8 34,14 16,14" class="d7-seg ${segA ? 'd7-on' : 'd7-off'}" />
@@ -64,8 +72,13 @@ export function createDisplays7Panel(perifs: PeripheralsManager): HTMLElement {
         <!-- Bottom bar (Image 3) -->
         <div class="disp7-bottom-bar">
           <span class="disp7-associated-lbl">Asociado a puertos ${baseHex} - ${endHex}</span>
-          <button class="disp7-btn-cambiar" id="btn-disp7-cambiar">cambiar</button>
-          <input type="text" class="port-edit-inline" id="edit-disp7-port" value="${basePort.toString(16).padStart(2, '0').toUpperCase()}" style="display: none;" maxlength="3" />
+          <button class="disp7-btn-cambiar" id="btn-disp7-cambiar" title="Cambiar puerto inicial">cambiar</button>
+          <input type="text" class="port-edit-inline" id="edit-disp7-port" value="${basePort.toString(16).padStart(2, '0').toUpperCase()}" style="display: none; width: 45px;" maxlength="3" />
+          <div class="disp7-quick-presets">
+            <button class="small-btn ${basePort === 0 ? 'active' : ''}" data-base="0">00H-07H</button>
+            <button class="small-btn ${basePort === 2 ? 'active' : ''}" data-base="2">02H-09H</button>
+            <button class="small-btn ${basePort === 8 ? 'active' : ''}" data-base="8">08H-0FH</button>
+          </div>
         </div>
       </div>
     `;
@@ -81,10 +94,7 @@ export function createDisplays7Panel(perifs: PeripheralsManager): HTMLElement {
       inputPort.select();
     });
 
-    let applied = false;
     const applyChange = () => {
-      if (applied) return;
-      applied = true;
       const raw = inputPort.value.trim().replace(/h$/i, '');
       const parsed = parseInt(raw, 16);
       if (!isNaN(parsed) && parsed >= 0 && parsed <= 248) {
@@ -97,19 +107,26 @@ export function createDisplays7Panel(perifs: PeripheralsManager): HTMLElement {
       if (e.key === 'Enter') {
         applyChange();
       } else if (e.key === 'Escape') {
-        applied = true;
         render();
       }
     });
     inputPort?.addEventListener('blur', applyChange);
+
+    panel.querySelectorAll('.disp7-quick-presets button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const b = parseInt(btn.getAttribute('data-base') || '0', 10);
+        basePort = b;
+        render();
+      });
+    });
   };
 
-  const oldOnState = perifs.onStateChange;
-  perifs.onStateChange = (st) => {
-    if (oldOnState) oldOnState(st);
-    render();
-  };
+  const unsub = perifs.subscribe(() => render());
   render();
 
-  return panel;
+  return {
+    element: panel,
+    update: render,
+    destroy: () => unsub()
+  };
 }

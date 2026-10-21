@@ -1,14 +1,16 @@
 {
   "name": "simulador-8085-moderno",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Simulador Moderno del Microprocesador Intel 8085 con MDI, Monaco Editor y Periféricos Virtuales",
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "tsx tests/cpu.test.ts && tsx tests/validate_real_examples.ts && tsx tests/ejemplo25.test.ts && tsx tests/auto_interrupts.test.ts",
+    "test": "tsx tests/cpu.test.ts && tsx tests/validate_real_examples.ts && tsx tests/ejemplo25.test.ts && tsx tests/auto_interrupts.test.ts && tsx tests/step_back.test.ts && tsx tests/step_over.test.ts && tsx tests/features.test.ts && tsx tests/peripherals_comprehensive.test.ts && tsx tests/pantalla_trap_integration.test.ts && tsx tests/safety_guards.test.ts",
     "test:ts": "node --loader ts-node/esm tests/run_tests.ts",
-    "start": "electron ."
+    "start": "npx @neutralinojs/neu run",
+    "start:electron": "electron .",
+    "build:native": "npm run build && npx @neutralinojs/neu build"
   },
   "keywords": [
     "8085",

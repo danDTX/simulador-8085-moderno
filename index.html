@@ -31,7 +31,9 @@
         <button class="menu-btn">Ejecutar</button>
         <div class="menu-dropdown">
           <button id="menu-exec-assemble">⚙️ Ensamblar a Memoria <span>F9</span></button>
-          <button id="menu-exec-step">⏩ Paso a Paso <span>F7</span></button>
+          <button id="menu-exec-step">⏩ Paso a Paso / Step Into <span>F7</span></button>
+          <button id="menu-exec-step-over">⤴️ Paso sin Entrar / Step Over <span>F8</span></button>
+          <button id="menu-exec-step-back">◁ Paso Atrás / Step Back <span>Shift+F7</span></button>
           <button id="menu-exec-run">▶️ Ejecutar Continuo <span>F5</span></button>
           <button id="menu-exec-pause">⏸️ Pausar</button>
           <div class="menu-divider"></div>
@@ -44,6 +46,9 @@
         <button class="menu-btn">Dispositivos</button>
         <div class="menu-dropdown">
           <button id="menu-dev-editor">📝 Editor ASM</button>
+          <button id="menu-dev-memory">🗄️ Visor de Memoria RAM (Hex/ASCII)</button>
+          <button id="menu-dev-disasm">🔍 Desensamblador de Memoria RAM</button>
+          <button id="menu-dev-stack">📚 Visualizador de Pila (Stack LIFO)</button>
           <div class="menu-divider"></div>
           <button id="menu-dev-terminal">📺 Pantalla de Texto (0E000H)</button>
           <button id="menu-dev-keypad">⌨️ Teclado (Puerto 00H / RST 5.5)</button>
@@ -69,6 +74,8 @@
       <div class="menu-bar-item">
         <button class="menu-btn">Opciones</button>
         <div class="menu-dropdown">
+          <button id="menu-opt-delay-gen">⏱️ Calculador de Retardos ASM...</button>
+          <div class="menu-divider"></div>
           <button id="menu-opt-interrupts">⚡ Interrupciones automáticas...</button>
         </div>
       </div>
@@ -77,12 +84,36 @@
       <div class="menu-bar-item">
         <button class="menu-btn">Ver</button>
         <div class="menu-dropdown">
+          <button id="menu-view-flowchart">🔀 Diagrama de Flujo del Código</button>
+          <div class="menu-divider"></div>
           <button id="menu-view-theme">🌓 Alternar Tema Oscuro / Claro</button>
           <div class="menu-divider"></div>
           <button id="menu-view-zoom-in">🔍 Aumentar Tamaño / Zoom <span>Ctrl +</span></button>
           <button id="menu-view-zoom-out">🔍 Reducir Tamaño / Zoom <span>Ctrl -</span></button>
           <button id="menu-view-zoom-reset">🔄 Restablecer Tamaño (100%) <span>Ctrl 0</span></button>
         </div>
+      </div>
+
+      <!-- Quick Theme Toggle -->
+      <button id="btn-quick-theme" class="menu-btn" title="Alternar Tema Claro / Oscuro" style="font-size: 13px; padding: 2px 8px; margin-left: 6px; cursor: pointer;">🌙</button>
+
+      <!-- Speed / Frequency Control Toolbar -->
+      <div class="menu-speed-control" style="display: flex; align-items: center; gap: 8px; margin-left: auto; margin-right: 15px; font-size: 12px; color: #c9d1d9;">
+        <span>⏱️ Frecuencia:</span>
+        <select id="speed-preset-select" class="speed-select" style="background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer;">
+          <option value="300khz" selected>⚡ 300 kHz (Simulador 8085sim Cátedra)</option>
+          <option value="500khz">🚀 500 kHz (Rápido)</option>
+          <option value="1mhz">⚡ 1 MHz</option>
+          <option value="2mhz">⏱️ 2 MHz (Intel 8085 Hardware Real)</option>
+          <option value="max">🔥 Máxima Velocidad (Turbo)</option>
+          <option value="100khz">100 kHz</option>
+          <option value="10khz">10 kHz</option>
+          <option value="1khz">1 kHz</option>
+          <option value="50hz">50 Hz (Paso visible)</option>
+          <option value="10hz">10 Hz (Didáctico)</option>
+          <option value="1hz">1 Hz (Lento)</option>
+        </select>
+        <input type="range" id="speed-slider" min="1" max="100" value="65" style="width: 80px; accent-color: #58a6ff; cursor: pointer;" title="Ajuste fino de velocidad" />
       </div>
     </header>
 

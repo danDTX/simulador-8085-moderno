@@ -408,7 +408,7 @@ BORRAR_PANTALLA:
     PUSH H
     PUSH B
     LXI H, 0E000H
-    LXI B, E803H                    ; 1000 en decimal
+    LXI B, 03E8H                    ; 1000 en decimal (40 cols x 25 filas)
 BUCLE_BORRAR:
     MVI M, 20H
     INX H
