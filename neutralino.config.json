@@ -4,7 +4,7 @@
   "version": "1.1.0",
   "defaultMode": "window",
   "port": 0,
-  "documentRoot": "/dist/",
+  "documentRoot": "/web/",
   "url": "/",
   "enableServer": true,
   "enableNativeAPI": true,
@@ -28,7 +28,7 @@
       "center": true,
       "fullScreen": false,
       "alwaysOnTop": false,
-      "enableInspector": true,
+      "enableInspector": false,
       "borderless": false,
       "maximize": false,
       "hidden": false,
@@ -38,9 +38,9 @@
   },
   "cli": {
     "binaryName": "simulador-8085",
-    "resourcesPath": "/dist/",
+    "resourcesPath": "/web/",
     "extensionsPath": "/extensions/",
-    "clientLibrary": "/dist/neutralino.js",
+    "clientLibrary": "/web/neutralino.js",
     "binaryVersion": "6.10.0",
     "clientVersion": "6.10.0"
   }

@@ -2,6 +2,7 @@
 node_modules/
 
 # Compilados de producción
+web/
 dist/
 dist-electron/
 out/

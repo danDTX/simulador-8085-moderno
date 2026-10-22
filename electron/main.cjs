@@ -19,7 +19,7 @@ function createWindow() {
   Menu.setApplicationMenu(null);
 
   // Load the production build
-  win.loadFile(path.join(__dirname, '../dist/index.html'));
+  win.loadFile(path.join(__dirname, '../web/index.html'));
 }
 
 app.whenReady().then(() => {
