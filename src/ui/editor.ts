@@ -68,7 +68,7 @@ export class CodeEditor {
           <button id="btn-format" class="tb-btn" title="Formatear Código (Shift+Alt+F)">✨ Formatear</button>
           <button id="btn-delay-gen" class="tb-btn" title="Asistente Calculador de Retardos">⏱️ Retardo</button>
           <div class="tb-divider"></div>
-          <span id="editor-filename" class="editor-filename-badge" title="Archivo activo">📄 programa.asm</span>
+          <span id="editor-filename" class="editor-filename-badge" title="Archivo activo">📄 sin_titulo.asm</span>
           <div class="tb-divider"></div>
           <span id="editor-status" class="editor-status">Listo</span>
         </div>
@@ -98,7 +98,7 @@ export class CodeEditor {
     // Initialize first tab
     const initialTab: EditorTab = {
       id: 'tab_' + Date.now(),
-      name: 'programa.asm',
+      name: 'sin_titulo.asm',
       code: initialCode,
       isDirty: false
     };

@@ -99,7 +99,7 @@ class SimulatorApp {
 
     this.winManager.createWindow({
       id: 'editor',
-      title: 'Editor ASM - [programa.asm] (F9 Ensamblar)',
+      title: 'Editor ASM - [sin_titulo.asm] (F9 Ensamblar)',
       icon: '📝',
       x: gap,
       y: gap,
@@ -295,8 +295,8 @@ class SimulatorApp {
 
   private async loadInitialProgram(): Promise<void> {
     const savedCode = localStorage.getItem('sim8085_saved_code');
-    const savedName = localStorage.getItem('sim8085_current_filename') || 'programa.asm';
-    if (savedCode && savedCode.trim().length > 0) {
+    const savedName = localStorage.getItem('sim8085_current_filename') || 'sin_titulo.asm';
+    if (savedCode !== null && savedCode.trim().length > 0) {
       this.editor.setValue(savedCode);
       this.setCurrentFileName(savedName);
       this.assembleCode();
@@ -304,28 +304,10 @@ class SimulatorApp {
       return;
     }
 
-    try {
-      // Try to load ejemplo 25 by default so the user can test ATM immediately
-      const res = await fetch('./examples/ejemplo 25.asm');
-      if (res.ok) {
-        const text = await res.text();
-        this.editor.setValue(text);
-        this.setCurrentFileName('ejemplo 25.asm');
-        this.saveToStorage(text);
-        this.assembleCode();
-        this.editor.setStatus('Listo para ejecutar (Presiona F5 o F7)');
-        return;
-      }
-    } catch {
-      // Fallback
-    }
-
-    // Fallback default code
-    const defaultAsm = `.org 0100H\nINICIO:\n    MVI A, 55H\n    OUT 01H\n    HLT\n`;
-    this.editor.setValue(defaultAsm);
-    this.setCurrentFileName('programa.asm');
-    this.saveToStorage(defaultAsm);
-    this.assembleCode();
+    // Primera ejecución (o sesión limpia): Hoja completamente en blanco
+    this.editor.setValue('');
+    this.setCurrentFileName('sin_titulo.asm');
+    this.editor.setStatus('Listo (Editor en blanco)');
   }
 
   public assembleCode(): boolean {
