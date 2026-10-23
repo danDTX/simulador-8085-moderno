@@ -16,6 +16,7 @@ import { createDisassemblerPanel, DisassemblerPanel } from './ui/panels/disassem
 import { createStackVisualizerPanel, StackVisualizerPanel } from './ui/panels/stackVisualizerPanel.js';
 import { createDelayGeneratorDialog } from './ui/dialogs/delayGeneratorDialog.js';
 import { createFlowchartPanel, FlowchartPanel } from './ui/panels/flowchartPanel.js';
+import { createInstructionsPanel, InstructionsPanelInstance } from './ui/panels/instructionsPanel.js';
 import { AssemblyResult } from './core/types.js';
 
 class SimulatorApp {
@@ -30,6 +31,7 @@ class SimulatorApp {
   private disasmPanelInstance?: DisassemblerPanel;
   private stackPanelInstance?: StackVisualizerPanel;
   private flowchartPanelInstance?: FlowchartPanel;
+  private instructionsPanelInstance?: InstructionsPanelInstance;
   private crtTerminalInstance?: CrtTerminalInstance | null = null;
   private virtualKeyboardInstance?: VirtualKeyboardInstance | null = null;
   private displays7Instance?: Displays7Instance | null = null;
@@ -726,6 +728,42 @@ class SimulatorApp {
     this.winManager.bringToFront('flowchart-view');
   }
 
+  public openInstructionsDictionaryWindow(instructionToSelect?: string): void {
+    if (this.winManager.getWindow('instructions-view')) {
+      this.winManager.bringToFront('instructions-view');
+      if (instructionToSelect && this.instructionsPanelInstance) {
+        this.instructionsPanelInstance.selectInstruction(instructionToSelect);
+      }
+      return;
+    }
+
+    this.instructionsPanelInstance = createInstructionsPanel({
+      onInsertCode: (code) => {
+        this.editor.insertAtCursor(code);
+        this.winManager.bringToFront('editor');
+        this.editor.setStatus('✍️ Código insertado desde el Diccionario de Instrucciones');
+      }
+    });
+
+    if (instructionToSelect) {
+      this.instructionsPanelInstance.selectInstruction(instructionToSelect);
+    }
+
+    this.winManager.createWindow({
+      id: 'instructions-view',
+      title: 'Diccionario Técnico de Instrucciones Intel 8085 (F1)',
+      icon: '📖',
+      x: 180,
+      y: 60,
+      width: 820,
+      height: 580,
+      minWidth: 540,
+      minHeight: 380,
+      content: this.instructionsPanelInstance.element
+    });
+    this.winManager.bringToFront('instructions-view');
+  }
+
   private updateAllViews(): void {
     this.mainConsole.update();
     if (this.memPanelInstance) {
@@ -852,7 +890,11 @@ class SimulatorApp {
       this.openKeyboardWindow();
     });
 
-    // Options - Delay Generator & Auto Interrupts
+    // Options - Instructions Dictionary, Delay Generator & Auto Interrupts
+    document.getElementById('menu-opt-instructions')?.addEventListener('click', () => {
+      this.openInstructionsDictionaryWindow();
+    });
+
     document.getElementById('menu-opt-delay-gen')?.addEventListener('click', () => {
       this.openDelayGeneratorWindow();
     });
@@ -1044,7 +1086,10 @@ class SimulatorApp {
       }
 
       // Simulator shortcuts
-      if (e.key === 'F9') {
+      if (e.key === 'F1') {
+        e.preventDefault();
+        this.openInstructionsDictionaryWindow();
+      } else if (e.key === 'F9') {
         e.preventDefault();
         this.assembleCode();
       } else if (e.key === 'F8') {

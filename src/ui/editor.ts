@@ -740,6 +740,29 @@ export class CodeEditor {
     this.updateEditor();
   }
 
+  public insertAtCursor(code: string): void {
+    const start = this.textarea.selectionStart;
+    const end = this.textarea.selectionEnd;
+    const before = this.textarea.value.substring(0, start);
+    const after = this.textarea.value.substring(end);
+
+    this.textarea.value = before + code + after;
+    this.textarea.selectionStart = this.textarea.selectionEnd = start + code.length;
+    this.isDirty = true;
+    const cur = this.tabs.find(t => t.id === this.activeTabId);
+    if (cur) {
+      cur.code = this.textarea.value;
+      cur.isDirty = true;
+    }
+    this.renderTabs();
+    this.setStatus('✏️ Modificado (se compilará al ejecutar)');
+    this.updateEditor();
+    if (this.callbacks.onChange) {
+      this.callbacks.onChange(this.textarea.value);
+    }
+    this.textarea.focus();
+  }
+
   public setFileName(name: string): void {
     if (this.filenameBadge) {
       this.filenameBadge.textContent = `📄 ${name}`;

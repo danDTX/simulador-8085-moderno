@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "tsx tests/cpu.test.ts && tsx tests/validate_real_examples.ts && tsx tests/ejemplo25.test.ts && tsx tests/auto_interrupts.test.ts && tsx tests/step_back.test.ts && tsx tests/step_over.test.ts && tsx tests/features.test.ts && tsx tests/peripherals_comprehensive.test.ts && tsx tests/pantalla_trap_integration.test.ts && tsx tests/safety_guards.test.ts",
+    "test": "tsx tests/cpu.test.ts && tsx tests/validate_real_examples.ts && tsx tests/ejemplo25.test.ts && tsx tests/auto_interrupts.test.ts && tsx tests/step_back.test.ts && tsx tests/step_over.test.ts && tsx tests/features.test.ts && tsx tests/peripherals_comprehensive.test.ts && tsx tests/pantalla_trap_integration.test.ts && tsx tests/safety_guards.test.ts && tsx tests/instructions_dictionary.test.ts",
     "test:ts": "node --loader ts-node/esm tests/run_tests.ts",
     "start": "npx @neutralinojs/neu run",
     "start:electron": "electron .",
