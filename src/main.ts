@@ -1368,5 +1368,10 @@ class SimulatorApp {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Desactivar menú contextual por defecto del navegador en toda la aplicación
+  window.addEventListener('contextmenu', (e: MouseEvent) => {
+    e.preventDefault();
+  }, { capture: true });
+
   new SimulatorApp();
 });

@@ -117,24 +117,37 @@ export class CodeEditor {
 
   public renderTabs(): void {
     if (!this.tabsScrollElem) return;
-    let html = '';
+    this.tabsScrollElem.innerHTML = '';
     for (const tab of this.tabs) {
       const isActive = (tab.id === this.activeTabId);
       const dirtyDot = tab.isDirty ? '<span class="editor-tab-dirty">•</span>' : '';
-      html += `
-        <div class="editor-tab ${isActive ? 'active' : ''}" data-tabid="${tab.id}" title="${tab.name} (Doble clic para renombrar)">
-          <span class="editor-tab-title">📄 <span class="editor-tab-name">${tab.name}</span></span>
-          ${dirtyDot}
-          <span class="editor-tab-close" data-closeid="${tab.id}" title="Cerrar pestaña">✕</span>
-        </div>
+      
+      const tabEl = document.createElement('div');
+      tabEl.className = `editor-tab ${isActive ? 'active' : ''}`;
+      tabEl.setAttribute('data-tabid', tab.id);
+      tabEl.title = `${tab.name} (Doble clic para renombrar)`;
+      tabEl.innerHTML = `
+        <span class="editor-tab-title">📄 <span class="editor-tab-name">${tab.name}</span></span>
+        ${dirtyDot}
+        <span class="editor-tab-close" data-closeid="${tab.id}" title="Cerrar pestaña">✕</span>
       `;
+
+      tabEl.addEventListener('dblclick', (e) => {
+        const closeTarget = (e.target as HTMLElement).closest('.editor-tab-close');
+        if (closeTarget) return;
+        e.stopPropagation();
+        this.startTabRename(tab.id, tabEl);
+      });
+
+      this.tabsScrollElem.appendChild(tabEl);
     }
-    this.tabsScrollElem.innerHTML = html;
   }
 
   public startTabRename(tabId: string, tabElement: HTMLElement): void {
     const tab = this.tabs.find(t => t.id === tabId);
     if (!tab) return;
+
+    if (tabElement.querySelector('.tab-rename-input')) return;
 
     const titleSpan = tabElement.querySelector('.editor-tab-title') as HTMLElement;
     if (!titleSpan) return;
@@ -194,6 +207,7 @@ export class CodeEditor {
 
     input.addEventListener('click', (e) => e.stopPropagation());
     input.addEventListener('dblclick', (e) => e.stopPropagation());
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
   }
 
   private setupEvents(): void {
@@ -890,6 +904,8 @@ export class CodeEditor {
   }
 
   public switchTab(id: string): void {
+    if (this.activeTabId === id) return;
+
     const current = this.tabs.find(t => t.id === this.activeTabId);
     if (current) {
       current.code = this.textarea.value;
