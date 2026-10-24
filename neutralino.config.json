@@ -17,7 +17,8 @@
     "app.*",
     "os.*",
     "window.*",
-    "filesystem.*"
+    "filesystem.*",
+    "events.*"
   ],
   "modes": {
     "window": {
@@ -34,7 +35,7 @@
       "maximize": false,
       "hidden": false,
       "resizable": true,
-      "exitProcessOnClose": true
+      "exitProcessOnClose": false
     }
   },
   "cli": {

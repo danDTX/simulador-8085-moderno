@@ -1,4 +1,5 @@
 import { DocsHelper, InstructionDoc, RegisterDoc } from '../core/docsHelper.js';
+import { showUnsavedChangesDialog } from './dialogs/unsavedChangesDialog.js';
 
 export interface EditorTab {
   id: string;
@@ -20,6 +21,7 @@ export interface EditorCallbacks {
   onRun?: () => void;
   onReset?: () => void;
   onSave?: () => void;
+  onSaveTab?: (tab: EditorTab) => Promise<boolean>;
   onToggleBreakpoint?: (line: number, active: boolean) => void;
 }
 
@@ -975,15 +977,49 @@ export class CodeEditor {
     }
   }
 
-  public closeTab(id: string): void {
-    const tabIdx = this.tabs.findIndex(t => t.id === id);
-    if (tabIdx === -1) return;
+  public syncCurrentTab(): void {
+    const current = this.tabs.find(t => t.id === this.activeTabId);
+    if (current) {
+      current.code = this.textarea.value;
+      current.isDirty = this.isDirty;
+    }
+  }
 
+  public hasUnsavedChanges(): boolean {
+    this.syncCurrentTab();
+    return this.tabs.some(t => t.isDirty);
+  }
+
+  public getUnsavedTabs(): EditorTab[] {
+    this.syncCurrentTab();
+    return this.tabs.filter(t => t.isDirty);
+  }
+
+  public async closeTab(id: string): Promise<boolean> {
+    const tabIdx = this.tabs.findIndex(t => t.id === id);
+    if (tabIdx === -1) return false;
+
+    this.syncCurrentTab();
     const tab = this.tabs[tabIdx];
     if (tab.isDirty) {
-      if (!confirm(`El archivo "${tab.name}" tiene cambios no guardados. ¿Deseas cerrarlo de todos modos?`)) {
-        return;
+      const action = await showUnsavedChangesDialog({
+        title: 'Archivo con cambios no guardados',
+        message: `El archivo "${tab.name}" tiene modificaciones pendientes. ¿Deseas guardarlas antes de cerrar la pestaña?`,
+        files: [tab],
+        saveButtonText: 'Guardar y Cerrar'
+      });
+
+      if (action === 'cancel') {
+        return false;
       }
+
+      if (action === 'save') {
+        if (this.callbacks.onSaveTab) {
+          const success = await this.callbacks.onSaveTab(tab);
+          if (!success) return false;
+        }
+      }
+      // If discard: proceed to remove tab without saving
     }
 
     this.tabs.splice(tabIdx, 1);
@@ -1001,6 +1037,7 @@ export class CodeEditor {
       const nextTab = this.tabs[Math.max(0, tabIdx - 1)];
       this.switchTab(nextTab.id);
     }
+    return true;
   }
 
   public newTab(name?: string, code?: string): void {

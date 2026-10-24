@@ -2,7 +2,8 @@ import { Intel8085 } from './core/cpu8085.js';
 import { Assembler8085 } from './core/assembler.js';
 import { PeripheralsManager } from './core/peripherals.js';
 import { MDIWindowManager } from './ui/windowManager.js';
-import { CodeEditor } from './ui/editor.js';
+import { CodeEditor, EditorTab } from './ui/editor.js';
+import { showUnsavedChangesDialog } from './ui/dialogs/unsavedChangesDialog.js';
 import { createMainConsolePanel } from './ui/panels/mainConsolePanel.js';
 import { createVirtualKeyboardPanel, VirtualKeyboardInstance } from './ui/panels/virtualKeyboardPanel.js';
 import { createDipSwitchesPanel, DipSwitchesInstance } from './ui/panels/dipSwitchesPanel.js';
@@ -56,6 +57,7 @@ class SimulatorApp {
     this.initUI();
     this.setupMenu();
     this.setupShortcuts();
+    this.setupExitHandlers();
     this.loadInitialProgram();
   }
 
@@ -96,6 +98,7 @@ class SimulatorApp {
       onRun: () => this.toggleRun(),
       onReset: () => this.resetCpu(),
       onSave: () => this.saveAsmFile(),
+      onSaveTab: async (tab) => this.saveAsmFile(false, tab),
       onToggleBreakpoint: (line, active) => this.handleEditorBreakpointToggle(line, active)
     });
 
@@ -828,6 +831,7 @@ class SimulatorApp {
     document.getElementById('menu-file-save')?.addEventListener('click', () => this.saveAsmFile(false));
     document.getElementById('menu-file-save-as')?.addEventListener('click', () => this.saveAsmFile(true));
     document.getElementById('menu-file-export-o')?.addEventListener('click', () => this.exportObjectFile());
+    document.getElementById('menu-file-exit')?.addEventListener('click', () => this.handleAppExit());
 
     // Execute Actions
     document.getElementById('menu-exec-assemble')?.addEventListener('click', () => this.assembleCode());
@@ -1045,9 +1049,12 @@ class SimulatorApp {
     input.click();
   }
 
-  public async saveAsmFile(forceSaveAs: boolean = false): Promise<void> {
+  public async saveAsmFile(forceSaveAs: boolean = false, targetTab?: EditorTab): Promise<boolean> {
+    if (targetTab && targetTab.id !== this.editor.activeTabId) {
+      this.editor.switchTab(targetTab.id);
+    }
     const curTab = this.editor.getActiveTab();
-    if (!curTab) return;
+    if (!curTab) return false;
 
     const content = this.editor.getValue();
     this.saveToStorage(content);
@@ -1063,7 +1070,7 @@ class SimulatorApp {
         this.editor.isDirty = false;
         this.editor.renderTabs();
         this.editor.setStatus(`💾 Guardado: ${curTab.name}`);
-        return;
+        return true;
       } catch (err) {
         console.warn('Error sobrescribiendo mediante fileHandle, solicitando ubicación:', err);
       }
@@ -1078,7 +1085,7 @@ class SimulatorApp {
           this.editor.isDirty = false;
           this.editor.renderTabs();
           this.editor.setStatus(`💾 Guardado: ${curTab.name}`);
-          return;
+          return true;
         } catch (err) {
           console.warn('Error sobrescribiendo mediante Neutralino filePath:', err);
         }
@@ -1111,9 +1118,9 @@ class SimulatorApp {
         this.editor.isDirty = false;
         this.editor.renderTabs();
         this.editor.setStatus(`💾 Guardado: ${file.name}`);
-        return;
+        return true;
       } catch (err: any) {
-        if (err.name === 'AbortError') return;
+        if (err.name === 'AbortError') return false;
         console.warn('showSaveFilePicker failed:', err);
       }
     }
@@ -1136,7 +1143,9 @@ class SimulatorApp {
           this.editor.isDirty = false;
           this.editor.renderTabs();
           this.editor.setStatus(`💾 Guardado: ${fileName}`);
-          return;
+          return true;
+        } else {
+          return false;
         }
       } catch (err) {
         console.warn('Neutralino showSaveDialog failed:', err);
@@ -1155,6 +1164,79 @@ class SimulatorApp {
     this.editor.isDirty = false;
     this.editor.renderTabs();
     this.editor.setStatus(`💾 Descargado: ${curTab.name}`);
+    return true;
+  }
+
+  public async handleAppExit(): Promise<void> {
+    if (!this.editor.hasUnsavedChanges()) {
+      this.exitApp();
+      return;
+    }
+
+    const unsaved = this.editor.getUnsavedTabs();
+    const action = await showUnsavedChangesDialog({
+      title: 'Archivos con cambios no guardados',
+      message: 'Los siguientes archivos tienen modificaciones que no se han guardado. ¿Deseas guardarlas antes de salir?',
+      files: unsaved,
+      saveButtonText: unsaved.length > 1 ? 'Guardar Todo y Salir' : 'Guardar y Salir'
+    });
+
+    if (action === 'cancel') {
+      return;
+    }
+
+    if (action === 'save') {
+      for (const tab of unsaved) {
+        const saved = await this.saveAsmFile(false, tab);
+        if (!saved) {
+          return;
+        }
+      }
+      this.exitApp();
+      return;
+    }
+
+    if (action === 'discard') {
+      this.exitApp();
+      return;
+    }
+  }
+
+  private exitApp(): void {
+    const winNeu = (window as any).Neutralino;
+    if (winNeu && winNeu.app && typeof winNeu.app.exit === 'function') {
+      winNeu.app.exit();
+    } else {
+      window.close();
+    }
+  }
+
+  private setupExitHandlers(): void {
+    // 1. Neutralino native window close event
+    const winNeu = (window as any).Neutralino;
+    if (winNeu) {
+      if (typeof winNeu.init === 'function') {
+        try {
+          winNeu.init();
+        } catch (e) {
+          console.warn('Neutralino.init error:', e);
+        }
+      }
+      if (winNeu.events && typeof winNeu.events.on === 'function') {
+        winNeu.events.on('windowClose', async () => {
+          await this.handleAppExit();
+        });
+      }
+    }
+
+    // 2. Browser beforeunload fallback
+    window.addEventListener('beforeunload', (e) => {
+      if (this.editor && this.editor.hasUnsavedChanges()) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    });
   }
 
   private async exportObjectFile(): Promise<void> {
@@ -1276,7 +1358,13 @@ class SimulatorApp {
 
   private setupShortcuts(): void {
     document.addEventListener('keydown', (e: KeyboardEvent) => {
-      // Global shortcuts (Ctrl + S, Ctrl + O, Ctrl + / - / 0, Alt + Z)
+      // Global shortcuts (Ctrl + S, Ctrl + O, Ctrl + / - / 0, Alt + Z, Alt + F4, Ctrl + Q)
+      if (e.altKey && e.key === 'F4') {
+        e.preventDefault();
+        this.handleAppExit();
+        return;
+      }
+
       if (e.altKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         this.editor.toggleWordWrap();
@@ -1284,7 +1372,11 @@ class SimulatorApp {
       }
 
       if (e.ctrlKey || e.metaKey) {
-        if (e.key.toLowerCase() === 's') {
+        if (e.key.toLowerCase() === 'q') {
+          e.preventDefault();
+          this.handleAppExit();
+          return;
+        } else if (e.key.toLowerCase() === 's') {
           e.preventDefault();
           this.saveAsmFile(e.shiftKey);
           return;

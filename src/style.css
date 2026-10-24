@@ -2342,6 +2342,54 @@ html, body {
   filter: brightness(1.15);
 }
 
+.modal-btn-danger {
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+  border: 1px solid rgba(248, 81, 73, 0.4);
+}
+
+.modal-btn-danger:hover {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.unsaved-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 6px 0;
+  max-height: 160px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.unsaved-file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.unsaved-file-item .unsaved-dot {
+  color: var(--warning);
+  font-weight: bold;
+}
+
+.unsaved-file-item .unsaved-badge {
+  margin-left: auto;
+  font-size: 10px;
+  background: rgba(210, 153, 34, 0.15);
+  color: var(--warning);
+  border: 1px solid rgba(210, 153, 34, 0.3);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
 .console-conf-btn {
   background: transparent;
   border: 1px solid var(--border-color);
