@@ -460,8 +460,13 @@ export class CodeEditor {
       charIndex += lines[i].length + 1;
     }
     this.textarea.selectionStart = this.textarea.selectionEnd = charIndex;
-    const lineHeight = parseFloat(getComputedStyle(this.textarea).lineHeight) || 20;
-    this.textarea.scrollTop = Math.max(0, lineIndex * lineHeight - 60);
+    if (this.isWordWrap && this.highlightOverlay.children[lineIndex]) {
+      const lineEl = this.highlightOverlay.children[lineIndex] as HTMLElement;
+      this.textarea.scrollTop = Math.max(0, lineEl.offsetTop - 60);
+    } else {
+      const lineHeight = parseFloat(getComputedStyle(this.textarea).lineHeight) || 20;
+      this.textarea.scrollTop = Math.max(0, lineIndex * lineHeight - 60);
+    }
     this.textarea.focus();
     this.updateEditor();
   }
@@ -471,44 +476,54 @@ export class CodeEditor {
     let hoverTimeout: any = null;
 
     this.textarea.addEventListener('mousemove', (e: MouseEvent) => {
-      const rect = this.textarea.getBoundingClientRect();
-      const x = e.clientX - rect.left + this.textarea.scrollLeft;
-      const y = e.clientY - rect.top + this.textarea.scrollTop;
-
-      const lineHeight = parseFloat(getComputedStyle(this.textarea).lineHeight) || 20;
-      const paddingTop = parseFloat(getComputedStyle(this.textarea).paddingTop) || 8;
-      const paddingLeft = parseFloat(getComputedStyle(this.textarea).paddingLeft) || 12;
-      const charWidth = 7.8 * (lineHeight / 20);
-      const lineIndex = Math.floor((y - paddingTop) / lineHeight);
-      const colIndex = Math.floor((x - paddingLeft) / charWidth);
-
-      const lines = this.textarea.value.split('\n');
-      if (lineIndex >= 0 && lineIndex < lines.length) {
-        const line = lines[lineIndex];
-        const commentIdx = line.indexOf(';');
-        if (commentIdx !== -1 && colIndex >= commentIdx) {
-          clearTimeout(hoverTimeout);
-          this.hideHover();
-          return;
-        }
-
-        if (colIndex >= 0 && colIndex < line.length) {
-          let start = colIndex;
-          let end = colIndex;
-          while (start > 0 && /[a-zA-Z0-9_\.]/.test(line[start - 1])) start--;
-          while (end < line.length && /[a-zA-Z0-9_\.]/.test(line[end])) end++;
-          const word = line.substring(start, end).trim();
-          if (word.length > 0) {
-            clearTimeout(hoverTimeout);
-            hoverTimeout = setTimeout(() => {
-              this.showHoverForToken(word, e.clientX, e.clientY);
-            }, 120);
-            return;
-          }
+      // 1. Localizar con precisión la línea de código visual bajo el cursor
+      const codeLines = this.highlightOverlay.children;
+      let targetLineEl: HTMLElement | null = null;
+      for (let i = 0; i < codeLines.length; i++) {
+        const lineEl = codeLines[i] as HTMLElement;
+        const lineRect = lineEl.getBoundingClientRect();
+        if (e.clientY >= lineRect.top && e.clientY <= lineRect.bottom) {
+          targetLineEl = lineEl;
+          break;
         }
       }
-      clearTimeout(hoverTimeout);
-      this.hideHover();
+
+      if (!targetLineEl) {
+        clearTimeout(hoverTimeout);
+        this.hideHover();
+        return;
+      }
+
+      // 2. Localizar el token o palabra exacta inspeccionando los spans renderizados
+      let foundWord = '';
+      const spans = targetLineEl.querySelectorAll('span');
+      for (let s = 0; s < spans.length; s++) {
+        const span = spans[s] as HTMLElement;
+        const sRect = span.getBoundingClientRect();
+        if (
+          e.clientX >= sRect.left &&
+          e.clientX <= sRect.right &&
+          e.clientY >= sRect.top &&
+          e.clientY <= sRect.bottom
+        ) {
+          if (span.classList.contains('syn-comment')) {
+            // En comentarios no desplegar documentación de instrucciones
+            break;
+          }
+          foundWord = span.getAttribute('data-token') || span.textContent?.replace(/:$/, '').trim() || '';
+          break;
+        }
+      }
+
+      if (foundWord) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = setTimeout(() => {
+          this.showHoverForToken(foundWord, e.clientX, e.clientY);
+        }, 120);
+      } else {
+        clearTimeout(hoverTimeout);
+        this.hideHover();
+      }
     });
 
     this.textarea.addEventListener('mouseleave', () => {
