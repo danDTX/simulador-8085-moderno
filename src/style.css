@@ -359,6 +359,19 @@ html, body {
   margin-left: 2px;
 }
 
+.tab-rename-input {
+  background: var(--bg-desktop);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 1px 5px;
+  outline: none;
+  width: 120px;
+  user-select: text;
+}
+
 .tab-add-btn {
   background: transparent;
   border: none;

@@ -5,6 +5,8 @@ export interface EditorTab {
   name: string;
   code: string;
   isDirty: boolean;
+  fileHandle?: any;
+  filePath?: string;
 }
 
 export interface EditorCallbacks {
@@ -120,8 +122,8 @@ export class CodeEditor {
       const isActive = (tab.id === this.activeTabId);
       const dirtyDot = tab.isDirty ? '<span class="editor-tab-dirty">•</span>' : '';
       html += `
-        <div class="editor-tab ${isActive ? 'active' : ''}" data-tabid="${tab.id}" title="${tab.name}">
-          <span>📄 ${tab.name}</span>
+        <div class="editor-tab ${isActive ? 'active' : ''}" data-tabid="${tab.id}" title="${tab.name} (Doble clic para renombrar)">
+          <span class="editor-tab-title">📄 <span class="editor-tab-name">${tab.name}</span></span>
           ${dirtyDot}
           <span class="editor-tab-close" data-closeid="${tab.id}" title="Cerrar pestaña">✕</span>
         </div>
@@ -130,8 +132,83 @@ export class CodeEditor {
     this.tabsScrollElem.innerHTML = html;
   }
 
+  public startTabRename(tabId: string, tabElement: HTMLElement): void {
+    const tab = this.tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    const titleSpan = tabElement.querySelector('.editor-tab-title') as HTMLElement;
+    if (!titleSpan) return;
+
+    const oldName = tab.name;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'tab-rename-input';
+    input.value = oldName;
+
+    titleSpan.innerHTML = '📄 ';
+    titleSpan.appendChild(input);
+
+    input.focus();
+    const dotIdx = oldName.lastIndexOf('.');
+    if (dotIdx > 0) {
+      input.setSelectionRange(0, dotIdx);
+    } else {
+      input.select();
+    }
+
+    let finished = false;
+    const finishRename = (commit: boolean) => {
+      if (finished) return;
+      finished = true;
+      if (commit) {
+        let newName = input.value.trim();
+        if (newName.length > 0) {
+          if (!newName.includes('.')) {
+            newName += '.asm';
+          }
+          tab.name = newName;
+          if (tab.id === this.activeTabId) {
+            this.setFileName(newName);
+            if (this.callbacks.onTabChange) {
+              this.callbacks.onTabChange(newName, tab.code);
+            }
+          }
+        }
+      }
+      this.renderTabs();
+    };
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        finishRename(true);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        finishRename(false);
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      finishRename(true);
+    });
+
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('dblclick', (e) => e.stopPropagation());
+  }
+
   private setupEvents(): void {
-    // Tab Bar click and add
+    // Tab Bar click, dblclick and add
+    this.tabsScrollElem.addEventListener('dblclick', (e) => {
+      const closeTarget = (e.target as HTMLElement).closest('.editor-tab-close');
+      if (closeTarget) return;
+      const tabTarget = (e.target as HTMLElement).closest('.editor-tab') as HTMLElement;
+      if (!tabTarget) return;
+      const tabId = tabTarget.getAttribute('data-tabid');
+      if (tabId) {
+        this.startTabRename(tabId, tabTarget);
+      }
+    });
+
     this.tabsScrollElem.addEventListener('click', (e) => {
       const closeTarget = (e.target as HTMLElement).closest('.editor-tab-close') as HTMLElement;
       if (closeTarget) {
@@ -775,10 +852,17 @@ export class CodeEditor {
     }
   }
 
-  public openTab(name: string, code: string): void {
+  public getActiveTab(): EditorTab | undefined {
+    return this.tabs.find(t => t.id === this.activeTabId);
+  }
+
+  public openTab(name: string, code: string, fileHandle?: any, filePath?: string): void {
     const existing = this.tabs.find(t => t.name === name);
     if (existing) {
       existing.code = code;
+      if (fileHandle) existing.fileHandle = fileHandle;
+      if (filePath) existing.filePath = filePath;
+      existing.isDirty = false;
       this.switchTab(existing.id);
       return;
     }
@@ -786,6 +870,8 @@ export class CodeEditor {
     if (this.tabs.length === 1 && !this.tabs[0].isDirty && this.tabs[0].code.trim().length <= 40 && this.tabs[0].name.startsWith('sin_titulo')) {
       this.tabs[0].name = name;
       this.tabs[0].code = code;
+      this.tabs[0].fileHandle = fileHandle;
+      this.tabs[0].filePath = filePath;
       this.tabs[0].isDirty = false;
       this.switchTab(this.tabs[0].id);
       return;
@@ -795,7 +881,9 @@ export class CodeEditor {
       id: 'tab_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
       name,
       code,
-      isDirty: false
+      isDirty: false,
+      fileHandle,
+      filePath
     };
     this.tabs.push(newTab);
     this.switchTab(newTab.id);

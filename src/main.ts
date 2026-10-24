@@ -825,7 +825,8 @@ class SimulatorApp {
     });
 
     document.getElementById('menu-file-open')?.addEventListener('click', () => this.openAsmFile());
-    document.getElementById('menu-file-save')?.addEventListener('click', () => this.saveAsmFile());
+    document.getElementById('menu-file-save')?.addEventListener('click', () => this.saveAsmFile(false));
+    document.getElementById('menu-file-save-as')?.addEventListener('click', () => this.saveAsmFile(true));
     document.getElementById('menu-file-export-o')?.addEventListener('click', () => this.exportObjectFile());
 
     // Execute Actions
@@ -962,7 +963,62 @@ class SimulatorApp {
     setupExampleLoader('menu-example-leds', 'Leds.asm', false);
   }
 
-  private openAsmFile(): void {
+  public async openAsmFile(): Promise<void> {
+    // 1. Modern Chromium / Edge WebView2 File System Access API
+    if (typeof (window as any).showOpenFilePicker === 'function') {
+      try {
+        const [handle] = await (window as any).showOpenFilePicker({
+          id: 'sim8085_asm_dir',
+          types: [
+            {
+              description: 'Código Ensamblador Intel 8085 (*.asm, *.s, *.txt)',
+              accept: { 'text/plain': ['.asm', '.s', '.txt'] }
+            }
+          ],
+          multiple: false
+        });
+
+        const file = await handle.getFile();
+        const text = await file.text();
+        this.editor.openTab(file.name, text, handle);
+        this.setCurrentFileName(file.name);
+        this.saveToStorage(text);
+        this.winManager.bringToFront('editor');
+        this.assembleCode();
+        this.editor.setStatus(`📂 Abierto: ${file.name}`);
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        console.warn('showOpenFilePicker failed, falling back:', err);
+      }
+    }
+
+    // 2. Neutralino Native API
+    const winNeu = (window as any).Neutralino;
+    if (winNeu && winNeu.os && winNeu.filesystem) {
+      try {
+        const entries = await winNeu.os.showOpenDialog('Abrir archivo ASM', {
+          filters: [{ name: 'Código Ensamblador (*.asm, *.s, *.txt)', extensions: ['asm', 's', 'txt'] }],
+          multiSelections: false
+        });
+        if (entries && entries.length > 0) {
+          const filePath = entries[0];
+          const text = await winNeu.filesystem.readFile(filePath);
+          const fileName = filePath.split(/[\\/]/).pop() || 'programa.asm';
+          this.editor.openTab(fileName, text, undefined, filePath);
+          this.setCurrentFileName(fileName);
+          this.saveToStorage(text);
+          this.winManager.bringToFront('editor');
+          this.assembleCode();
+          this.editor.setStatus(`📂 Abierto: ${fileName}`);
+          return;
+        }
+      } catch (err) {
+        console.warn('Neutralino openDialog failed:', err);
+      }
+    }
+
+    // 3. Fallback input file
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.asm,.s,.txt';
@@ -977,6 +1033,7 @@ class SimulatorApp {
           this.saveToStorage(re.target.result);
           this.winManager.bringToFront('editor');
           this.assembleCode();
+          this.editor.setStatus(`📂 Abierto: ${file.name}`);
         }
       };
       reader.readAsText(file);
@@ -984,19 +1041,119 @@ class SimulatorApp {
     input.click();
   }
 
-  private saveAsmFile(): void {
+  public async saveAsmFile(forceSaveAs: boolean = false): Promise<void> {
+    const curTab = this.editor.getActiveTab();
+    if (!curTab) return;
+
     const content = this.editor.getValue();
     this.saveToStorage(content);
+
+    // 1. Direct overwrite if file already has a handle/path and NOT forcing Save As
+    if (!forceSaveAs && curTab.fileHandle) {
+      try {
+        const writable = await curTab.fileHandle.createWritable();
+        await writable.write(content);
+        await writable.close();
+
+        curTab.isDirty = false;
+        this.editor.isDirty = false;
+        this.editor.renderTabs();
+        this.editor.setStatus(`💾 Guardado: ${curTab.name}`);
+        return;
+      } catch (err) {
+        console.warn('Error sobrescribiendo mediante fileHandle, solicitando ubicación:', err);
+      }
+    }
+
+    if (!forceSaveAs && curTab.filePath) {
+      const winNeu = (window as any).Neutralino;
+      if (winNeu && winNeu.filesystem) {
+        try {
+          await winNeu.filesystem.writeFile(curTab.filePath, content);
+          curTab.isDirty = false;
+          this.editor.isDirty = false;
+          this.editor.renderTabs();
+          this.editor.setStatus(`💾 Guardado: ${curTab.name}`);
+          return;
+        } catch (err) {
+          console.warn('Error sobrescribiendo mediante Neutralino filePath:', err);
+        }
+      }
+    }
+
+    // 2. Modern File System Access API (Prompts where to save, remembers path, NO downloads popup)
+    if (typeof (window as any).showSaveFilePicker === 'function') {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          id: 'sim8085_asm_dir', // Remembers folder!
+          suggestedName: curTab.name || 'programa.asm',
+          types: [
+            {
+              description: 'Código Ensamblador Intel 8085 (*.asm)',
+              accept: { 'text/plain': ['.asm', '.s', '.txt'] }
+            }
+          ]
+        });
+
+        const writable = await handle.createWritable();
+        await writable.write(content);
+        await writable.close();
+
+        curTab.fileHandle = handle;
+        const file = await handle.getFile();
+        curTab.name = file.name;
+        this.setCurrentFileName(file.name);
+        curTab.isDirty = false;
+        this.editor.isDirty = false;
+        this.editor.renderTabs();
+        this.editor.setStatus(`💾 Guardado: ${file.name}`);
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        console.warn('showSaveFilePicker failed:', err);
+      }
+    }
+
+    // 3. Neutralino Native Dialog fallback
+    const winNeu = (window as any).Neutralino;
+    if (winNeu && winNeu.os && winNeu.filesystem) {
+      try {
+        const targetPath = await winNeu.os.showSaveDialog('Guardar programa ASM', {
+          defaultPath: curTab.name || 'programa.asm',
+          filters: [{ name: 'Código Ensamblador (*.asm)', extensions: ['asm', 's', 'txt'] }]
+        });
+        if (targetPath) {
+          await winNeu.filesystem.writeFile(targetPath, content);
+          curTab.filePath = targetPath;
+          const fileName = targetPath.split(/[\\/]/).pop() || curTab.name;
+          curTab.name = fileName;
+          this.setCurrentFileName(fileName);
+          curTab.isDirty = false;
+          this.editor.isDirty = false;
+          this.editor.renderTabs();
+          this.editor.setStatus(`💾 Guardado: ${fileName}`);
+          return;
+        }
+      } catch (err) {
+        console.warn('Neutralino showSaveDialog failed:', err);
+      }
+    }
+
+    // 4. Last resort browser download fallback
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = this.currentFileName || 'programa.asm';
+    a.download = curTab.name || 'programa.asm';
     a.click();
     URL.revokeObjectURL(url);
+    curTab.isDirty = false;
+    this.editor.isDirty = false;
+    this.editor.renderTabs();
+    this.editor.setStatus(`💾 Descargado: ${curTab.name}`);
   }
 
-  private exportObjectFile(): void {
+  private async exportObjectFile(): Promise<void> {
     const code = this.editor.getValue();
     this.saveToStorage(code);
     const result = this.assembler.assemble(code);
@@ -1004,13 +1161,60 @@ class SimulatorApp {
       alert('Corrige los errores antes de exportar el archivo objeto .o');
       return;
     }
+
+    const baseName = (this.currentFileName || 'programa').replace(/\.(asm|s|txt)$/i, '');
+
+    // 1. File System Access API
+    if (typeof (window as any).showSaveFilePicker === 'function') {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          id: 'sim8085_asm_dir',
+          suggestedName: `${baseName}.o`,
+          types: [
+            {
+              description: 'Archivo Objeto 8085sim (*.o)',
+              accept: { 'text/plain': ['.o'] }
+            }
+          ]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(result.objectCodeText);
+        await writable.close();
+        this.editor.setStatus(`💾 Objeto exportado: ${baseName}.o`);
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        console.warn('showSaveFilePicker exportObject failed:', err);
+      }
+    }
+
+    // 2. Neutralino Native API
+    const winNeu = (window as any).Neutralino;
+    if (winNeu && winNeu.os && winNeu.filesystem) {
+      try {
+        const targetPath = await winNeu.os.showSaveDialog('Exportar archivo objeto .o', {
+          defaultPath: `${baseName}.o`,
+          filters: [{ name: 'Archivo Objeto (*.o)', extensions: ['o'] }]
+        });
+        if (targetPath) {
+          await winNeu.filesystem.writeFile(targetPath, result.objectCodeText);
+          this.editor.setStatus(`💾 Objeto exportado: ${baseName}.o`);
+          return;
+        }
+      } catch (err) {
+        console.warn('Neutralino exportObject failed:', err);
+      }
+    }
+
+    // 3. Last resort browser download
     const blob = new Blob([result.objectCodeText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const baseName = (this.currentFileName || 'programa').replace(/\.(asm|s|txt)$/i, '');
+    a.href = url;
     a.download = `${baseName}.o`;
     a.click();
     URL.revokeObjectURL(url);
+    this.editor.setStatus(`💾 Objeto descargado: ${baseName}.o`);
   }
 
   private currentFileName: string = 'programa.asm';
@@ -1068,9 +1272,17 @@ class SimulatorApp {
 
   private setupShortcuts(): void {
     document.addEventListener('keydown', (e: KeyboardEvent) => {
-      // Zoom shortcuts (Ctrl + / Ctrl - / Ctrl 0)
+      // Global shortcuts (Ctrl + S, Ctrl + O, Ctrl + / - / 0)
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === '+' || e.key === '=') {
+        if (e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          this.saveAsmFile(e.shiftKey);
+          return;
+        } else if (e.key.toLowerCase() === 'o') {
+          e.preventDefault();
+          this.openAsmFile();
+          return;
+        } else if (e.key === '+' || e.key === '=') {
           e.preventDefault();
           this.applyZoom(0.1);
           return;
