@@ -40,6 +40,7 @@ export class CodeEditor {
   private pcLine: number = -1;
   public breakpoints: Set<number> = new Set();
   public isDirty: boolean = false;
+  public needsAssemble: boolean = true;
   public isWordWrap: boolean = true;
 
   // Tabs state
@@ -263,6 +264,7 @@ export class CodeEditor {
 
     this.textarea.addEventListener('input', () => {
       this.isDirty = true;
+      this.needsAssemble = true;
       const curTab = this.tabs.find(t => t.id === this.activeTabId);
       if (curTab) {
         curTab.code = this.textarea.value;
@@ -325,7 +327,16 @@ export class CodeEditor {
         const end = this.textarea.selectionEnd;
         this.textarea.value = this.textarea.value.substring(0, start) + '    ' + this.textarea.value.substring(end);
         this.textarea.selectionStart = this.textarea.selectionEnd = start + 4;
+        this.isDirty = true;
+        this.needsAssemble = true;
+        const curTab = this.tabs.find(t => t.id === this.activeTabId);
+        if (curTab) {
+          curTab.code = this.textarea.value;
+          curTab.isDirty = true;
+        }
+        this.renderTabs();
         this.updateEditor();
+        if (this.callbacks.onChange) this.callbacks.onChange(this.textarea.value);
         return;
       }
 
@@ -425,6 +436,14 @@ export class CodeEditor {
       const curPos = this.textarea.selectionStart;
       this.textarea.value = formatted;
       this.textarea.selectionStart = this.textarea.selectionEnd = Math.min(curPos, formatted.length);
+      this.isDirty = true;
+      this.needsAssemble = true;
+      const curTab = this.tabs.find(t => t.id === this.activeTabId);
+      if (curTab) {
+        curTab.code = formatted;
+        curTab.isDirty = true;
+      }
+      this.renderTabs();
       this.updateEditor();
       if (this.callbacks.onChange) this.callbacks.onChange(formatted);
       this.setStatus('✨ Código formateado correctamente');
@@ -876,8 +895,19 @@ export class CodeEditor {
 
     this.textarea.value = before + replacement + after;
     this.textarea.selectionStart = this.textarea.selectionEnd = before.length + replacement.length;
+    this.isDirty = true;
+    this.needsAssemble = true;
+    const cur = this.tabs.find(t => t.id === this.activeTabId);
+    if (cur) {
+      cur.code = this.textarea.value;
+      cur.isDirty = true;
+    }
+    this.renderTabs();
     this.hideAutocomplete();
     this.updateEditor();
+    if (this.callbacks.onChange) {
+      this.callbacks.onChange(this.textarea.value);
+    }
     this.textarea.focus();
   }
 
@@ -919,6 +949,7 @@ export class CodeEditor {
     this.textarea.value = before + code + after;
     this.textarea.selectionStart = this.textarea.selectionEnd = start + code.length;
     this.isDirty = true;
+    this.needsAssemble = true;
     const cur = this.tabs.find(t => t.id === this.activeTabId);
     if (cur) {
       cur.code = this.textarea.value;

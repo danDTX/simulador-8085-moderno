@@ -365,7 +365,7 @@ class SimulatorApp {
     const startLine = result.addressToSourceLine.get(result.entryPoint) ?? -1;
     this.editor.setExecutionLine(startLine);
 
-    this.editor.isDirty = false;
+    this.editor.needsAssemble = false;
     const warnings = result.diagnostics.filter(d => !d.isError);
     if (warnings.length > 0) {
       const firstW = warnings[0];
@@ -403,7 +403,7 @@ class SimulatorApp {
   }
 
   public stepCpu(): void {
-    if (this.editor.isDirty || this.cpu.halted) {
+    if (this.editor.needsAssemble || this.cpu.halted) {
       const ok = this.assembleCode();
       if (!ok) return;
     }
@@ -421,7 +421,7 @@ class SimulatorApp {
   }
 
   public stepOver(): void {
-    if (this.editor.isDirty || this.cpu.halted) {
+    if (this.editor.needsAssemble || this.cpu.halted) {
       const ok = this.assembleCode();
       if (!ok) return;
     }
@@ -507,7 +507,7 @@ class SimulatorApp {
   }
 
   public startRun(): void {
-    if (this.editor.isDirty || this.cpu.halted) {
+    if (this.editor.needsAssemble || this.cpu.halted) {
       const ok = this.assembleCode();
       if (!ok) return;
     }
@@ -562,7 +562,7 @@ class SimulatorApp {
 
   public resetCpu(): void {
     this.pauseRun();
-    if (this.editor.isDirty) {
+    if (this.editor.needsAssemble) {
       this.assembleCode();
     }
     this.cpu.reset();
