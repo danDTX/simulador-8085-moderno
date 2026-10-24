@@ -10,7 +10,8 @@
   <div id="app">
     <!-- 1. Menú Superior de la Aplicación -->
     <header class="app-menubar">
-      <div class="menu-app-brand">
+      <div class="menu-app-brand" id="btn-brand-about" title="Acerca de... (UMSS - FCyT - Microprocesadores I)" style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+        <img src="./logo_umss.png" alt="UMSS Logo" style="height: 20px; width: auto; object-fit: contain; background: #ffffff; border-radius: 3px; padding: 1px 3px;" />
         <span>⚡ 8085sim Modern</span>
       </div>
 
@@ -99,6 +100,16 @@
           <button id="menu-view-zoom-in">🔍 Aumentar Tamaño / Zoom <span>Ctrl +</span></button>
           <button id="menu-view-zoom-out">🔍 Reducir Tamaño / Zoom <span>Ctrl -</span></button>
           <button id="menu-view-zoom-reset">🔄 Restablecer Tamaño (100%) <span>Ctrl 0</span></button>
+        </div>
+      </div>
+
+      <!-- Menú Ayuda -->
+      <div class="menu-bar-item">
+        <button class="menu-btn">Ayuda</button>
+        <div class="menu-dropdown">
+          <button id="menu-help-instructions">📖 Diccionario de Instrucciones <span>F1</span></button>
+          <div class="menu-divider"></div>
+          <button id="menu-help-about">🏛️ Acerca de la Cátedra (UMSS)...</button>
         </div>
       </div>
 

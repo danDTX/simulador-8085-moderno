@@ -4,6 +4,7 @@ import { PeripheralsManager } from './core/peripherals.js';
 import { MDIWindowManager } from './ui/windowManager.js';
 import { CodeEditor, EditorTab } from './ui/editor.js';
 import { showUnsavedChangesDialog } from './ui/dialogs/unsavedChangesDialog.js';
+import { showAboutDialog } from './ui/dialogs/aboutDialog.js';
 import { createMainConsolePanel } from './ui/panels/mainConsolePanel.js';
 import { createVirtualKeyboardPanel, VirtualKeyboardInstance } from './ui/panels/virtualKeyboardPanel.js';
 import { createDipSwitchesPanel, DipSwitchesInstance } from './ui/panels/dipSwitchesPanel.js';
@@ -915,6 +916,17 @@ class SimulatorApp {
 
     document.getElementById('menu-view-flowchart')?.addEventListener('click', () => {
       this.openFlowchartWindow();
+    });
+
+    // Help & About Dialog (UMSS - FCyT)
+    document.getElementById('menu-help-instructions')?.addEventListener('click', () => {
+      this.openInstructionsDictionaryWindow();
+    });
+    document.getElementById('menu-help-about')?.addEventListener('click', () => {
+      showAboutDialog();
+    });
+    document.getElementById('btn-brand-about')?.addEventListener('click', () => {
+      showAboutDialog();
     });
 
     // Theme Toggle with persistence
