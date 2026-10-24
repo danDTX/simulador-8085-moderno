@@ -601,7 +601,10 @@ html, body {
 .editor-hover-tooltip {
   position: absolute;
   z-index: 1000;
-  max-width: 360px;
+  max-width: 380px;
+  max-height: calc(100% - 20px);
+  overflow-y: auto;
+  box-sizing: border-box;
   background: #1e242c;
   border: 1px solid var(--accent);
   border-radius: 6px;
@@ -611,6 +614,15 @@ html, body {
   font-family: var(--font-sans);
   color: var(--text-main);
   animation: fadeIn 0.12s ease;
+}
+
+.editor-hover-tooltip::-webkit-scrollbar {
+  width: 4px;
+}
+
+.editor-hover-tooltip::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
 }
 
 .hover-card-header {

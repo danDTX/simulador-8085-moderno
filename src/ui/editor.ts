@@ -498,6 +498,7 @@ export class CodeEditor {
 
       // 2. Localizar el token o palabra exacta inspeccionando los spans renderizados
       let foundWord = '';
+      let targetSpanRect: DOMRect | null = null;
       const spans = targetLineEl.querySelectorAll('span');
       for (let s = 0; s < spans.length; s++) {
         const span = spans[s] as HTMLElement;
@@ -513,6 +514,7 @@ export class CodeEditor {
             break;
           }
           foundWord = span.getAttribute('data-token') || span.textContent?.replace(/:$/, '').trim() || '';
+          targetSpanRect = sRect;
           break;
         }
       }
@@ -520,7 +522,7 @@ export class CodeEditor {
       if (foundWord) {
         clearTimeout(hoverTimeout);
         hoverTimeout = setTimeout(() => {
-          this.showHoverForToken(foundWord, e.clientX, e.clientY);
+          this.showHoverForToken(foundWord, e.clientX, e.clientY, targetSpanRect);
         }, 120);
       } else {
         clearTimeout(hoverTimeout);
@@ -534,7 +536,7 @@ export class CodeEditor {
     });
   }
 
-  private showHoverForToken(token: string, x: number, y: number): void {
+  private showHoverForToken(token: string, x: number, y: number, tokenRect?: DOMRect | null): void {
     const upper = token.toUpperCase();
     let contentHtml = '';
 
@@ -579,16 +581,45 @@ export class CodeEditor {
     this.hoverTooltip.innerHTML = contentHtml;
     this.hoverTooltip.style.display = 'block';
 
-    const rect = this.container.getBoundingClientRect();
-    let posX = x - rect.left + 10;
-    let posY = y - rect.top + 15;
+    const parent = (this.hoverTooltip.offsetParent as HTMLElement) || this.textarea.parentElement || this.container;
+    const parentRect = parent.getBoundingClientRect();
 
-    // Boundary protection
-    if (posX + 360 > rect.width) posX = rect.width - 370;
-    if (posY + 220 > rect.height) posY = y - rect.top - 230;
+    const tooltipW = this.hoverTooltip.offsetWidth || 360;
+    const tooltipH = this.hoverTooltip.offsetHeight || 280;
 
-    this.hoverTooltip.style.left = `${Math.max(10, posX)}px`;
-    this.hoverTooltip.style.top = `${Math.max(10, posY)}px`;
+    const tokenTop = tokenRect ? tokenRect.top - parentRect.top : y - parentRect.top;
+    const tokenBottom = tokenRect ? tokenRect.bottom - parentRect.top : y - parentRect.top + 20;
+    const tokenLeft = tokenRect ? tokenRect.left - parentRect.left : x - parentRect.left;
+
+    // Posicionamiento horizontal: alineado al token o cursor, protegido de bordes
+    let posX = tokenLeft;
+    if (posX + tooltipW > parentRect.width - 15) {
+      posX = parentRect.width - tooltipW - 15;
+    }
+    if (posX < 10) {
+      posX = 10;
+    }
+
+    // Posicionamiento vertical inteligente (Flip arriba/abajo según disponibilidad)
+    let posY = tokenBottom + 8; // Posición estándar: debajo de la instrucción
+
+    // Si desborda por la parte inferior del contenedor del editor
+    if (posY + tooltipH > parentRect.height - 10) {
+      // Si cabe completo en la parte superior de la instrucción
+      if (tokenTop - tooltipH - 8 >= 5) {
+        posY = tokenTop - tooltipH - 8;
+      } else {
+        // Si no cabe completo arriba ni abajo, colocar donde haya mayor altura disponible
+        if (tokenTop > parentRect.height - tokenBottom) {
+          posY = Math.max(5, tokenTop - tooltipH - 8);
+        } else {
+          posY = Math.max(5, Math.min(tokenBottom + 8, parentRect.height - tooltipH - 10));
+        }
+      }
+    }
+
+    this.hoverTooltip.style.left = `${Math.round(posX)}px`;
+    this.hoverTooltip.style.top = `${Math.round(posY)}px`;
   }
 
   private hideHover(): void {
