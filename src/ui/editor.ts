@@ -908,7 +908,7 @@ export class CodeEditor {
       if (fileHandle) existing.fileHandle = fileHandle;
       if (filePath) existing.filePath = filePath;
       existing.isDirty = false;
-      this.switchTab(existing.id);
+      this.switchTab(existing.id, true);
       return;
     }
 
@@ -918,7 +918,7 @@ export class CodeEditor {
       this.tabs[0].fileHandle = fileHandle;
       this.tabs[0].filePath = filePath;
       this.tabs[0].isDirty = false;
-      this.switchTab(this.tabs[0].id);
+      this.switchTab(this.tabs[0].id, true);
       return;
     }
 
@@ -931,14 +931,14 @@ export class CodeEditor {
       filePath
     };
     this.tabs.push(newTab);
-    this.switchTab(newTab.id);
+    this.switchTab(newTab.id, true);
   }
 
-  public switchTab(id: string): void {
-    if (this.activeTabId === id) return;
+  public switchTab(id: string, force: boolean = false): void {
+    if (this.activeTabId === id && !force) return;
 
     const current = this.tabs.find(t => t.id === this.activeTabId);
-    if (current) {
+    if (current && (!force || current.id !== id)) {
       current.code = this.textarea.value;
       current.isDirty = this.isDirty;
     }
