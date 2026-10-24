@@ -416,6 +416,13 @@ html, body {
   background: rgba(88, 166, 255, 0.1);
 }
 
+.tb-btn.tb-btn-active {
+  background: rgba(88, 166, 255, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .tb-divider {
   width: 1px;
   height: 18px;
@@ -556,6 +563,29 @@ html, body {
 .code-line-pc {
   background: rgba(241, 224, 90, 0.15);
   box-shadow: inset 3px 0 0 #f1e05a;
+}
+
+/* --- AJUSTE DE LÍNEA AUTOMÁTICO (WORD WRAP) --- */
+.editor-wrapper.word-wrap .editor-textarea,
+.editor-wrapper.word-wrap .editor-highlight {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  word-wrap: break-word !important;
+  overflow-x: hidden !important;
+}
+
+.editor-wrapper.word-wrap .code-line {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  word-wrap: break-word !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: var(--editor-line-height, 20px) !important;
+}
+
+.editor-wrapper.word-wrap .line-number {
+  max-height: none !important;
+  line-height: var(--editor-line-height, 20px);
 }
 
 /* Syntax Highlighting */

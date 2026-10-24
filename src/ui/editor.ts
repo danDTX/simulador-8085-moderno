@@ -33,10 +33,12 @@ export class CodeEditor {
   private hoverTooltip: HTMLElement;
   private autocompleteBox: HTMLElement;
   private tabsScrollElem: HTMLElement;
+  private editorWrapper!: HTMLElement;
   private callbacks: EditorCallbacks;
   private pcLine: number = -1;
   public breakpoints: Set<number> = new Set();
   public isDirty: boolean = false;
+  public isWordWrap: boolean = true;
 
   // Tabs state
   public tabs: EditorTab[] = [];
@@ -53,8 +55,11 @@ export class CodeEditor {
     this.container = container;
     this.callbacks = callbacks;
 
+    const savedWrap = localStorage.getItem('sim8085_word_wrap');
+    this.isWordWrap = (savedWrap !== 'false');
+
     this.container.innerHTML = `
-      <div class="editor-wrapper">
+      <div class="editor-wrapper ${this.isWordWrap ? 'word-wrap' : ''}">
         <div class="editor-tab-bar" id="editor-tab-bar">
           <div class="editor-tabs-scroll" id="editor-tabs-scroll"></div>
           <button id="btn-tab-add" class="tab-add-btn" title="Nueva Pestaña (+)">+</button>
@@ -68,6 +73,7 @@ export class CodeEditor {
           <button id="btn-pause" class="tb-btn" title="Pausar">⏸️ Pausar</button>
           <button id="btn-reset" class="tb-btn" title="Reiniciar CPU">🔄 Reset</button>
           <button id="btn-format" class="tb-btn" title="Formatear Código (Shift+Alt+F)">✨ Formatear</button>
+          <button id="btn-wrap" class="tb-btn ${this.isWordWrap ? 'tb-btn-active' : ''}" title="Ajuste de Línea Automático (Alt+Z)">↩️ Ajuste</button>
           <button id="btn-delay-gen" class="tb-btn" title="Asistente Calculador de Retardos">⏱️ Retardo</button>
           <div class="tb-divider"></div>
           <span id="editor-filename" class="editor-filename-badge" title="Archivo activo">📄 sin_titulo.asm</span>
@@ -80,7 +86,7 @@ export class CodeEditor {
           </div>
           <div class="editor-code-area">
             <pre class="editor-highlight" id="editor-highlight" aria-hidden="true"></pre>
-            <textarea class="editor-textarea" id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" wrap="off"></textarea>
+            <textarea class="editor-textarea" id="editor-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" wrap="${this.isWordWrap ? 'soft' : 'off'}"></textarea>
             <div class="editor-hover-tooltip" id="editor-hover-tooltip" style="display: none;"></div>
             <div class="editor-autocomplete-dropdown" id="editor-autocomplete" style="display: none;"></div>
           </div>
@@ -88,6 +94,7 @@ export class CodeEditor {
       </div>
     `;
 
+    this.editorWrapper = this.container.querySelector('.editor-wrapper') as HTMLElement;
     this.textarea = this.container.querySelector('#editor-textarea') as HTMLTextAreaElement;
     this.lineNumbers = this.container.querySelector('#editor-line-numbers') as HTMLElement;
     this.highlightOverlay = this.container.querySelector('#editor-highlight') as HTMLElement;
@@ -96,6 +103,16 @@ export class CodeEditor {
     this.hoverTooltip = this.container.querySelector('#editor-hover-tooltip') as HTMLElement;
     this.autocompleteBox = this.container.querySelector('#editor-autocomplete') as HTMLElement;
     this.tabsScrollElem = this.container.querySelector('#editor-tabs-scroll') as HTMLElement;
+
+    // ResizeObserver for dynamic word wrap recalculations
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => {
+        if (this.isWordWrap) {
+          this.syncGutterHeights();
+        }
+      });
+      ro.observe(this.highlightOverlay);
+    }
 
     // Initialize first tab
     const initialTab: EditorTab = {
@@ -260,7 +277,9 @@ export class CodeEditor {
 
     this.textarea.addEventListener('scroll', () => {
       this.highlightOverlay.scrollTop = this.textarea.scrollTop;
-      this.highlightOverlay.scrollLeft = this.textarea.scrollLeft;
+      if (!this.isWordWrap) {
+        this.highlightOverlay.scrollLeft = this.textarea.scrollLeft;
+      }
       this.lineNumbers.scrollTop = this.textarea.scrollTop;
       this.hideHover();
       this.hideAutocomplete();
@@ -312,6 +331,13 @@ export class CodeEditor {
       if (e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         this.formatDocument();
+        return;
+      }
+
+      // Word Wrap Shortcut: Alt + Z
+      if (e.altKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        this.toggleWordWrap();
         return;
       }
 
@@ -381,6 +407,9 @@ export class CodeEditor {
     });
     this.container.querySelector('#btn-format')?.addEventListener('click', () => {
       this.formatDocument();
+    });
+    this.container.querySelector('#btn-wrap')?.addEventListener('click', () => {
+      this.toggleWordWrap();
     });
     this.container.querySelector('#btn-delay-gen')?.addEventListener('click', () => {
       if (this.callbacks.onOpenDelayGen) this.callbacks.onOpenDelayGen();
@@ -815,7 +844,9 @@ export class CodeEditor {
 
   public syncScroll(): void {
     this.highlightOverlay.scrollTop = this.textarea.scrollTop;
-    this.highlightOverlay.scrollLeft = this.textarea.scrollLeft;
+    if (!this.isWordWrap) {
+      this.highlightOverlay.scrollLeft = this.textarea.scrollLeft;
+    }
     this.lineNumbers.scrollTop = this.textarea.scrollTop;
   }
 
@@ -1061,6 +1092,17 @@ export class CodeEditor {
     }
     this.highlightOverlay.innerHTML = highlighted;
 
+    if (this.isWordWrap) {
+      requestAnimationFrame(() => {
+        this.syncGutterHeights();
+      });
+    } else {
+      const gutterLines = this.lineNumbers.children;
+      for (let i = 0; i < gutterLines.length; i++) {
+        (gutterLines[i] as HTMLElement).style.height = '';
+      }
+    }
+
     // Linter / Validation check for unresolved labels
     const broken = DocsHelper.validateLabels(text);
     if (broken.length > 0) {
@@ -1069,6 +1111,50 @@ export class CodeEditor {
     } else {
       this.errorBadge.textContent = 'Listo';
       this.errorBadge.className = 'editor-status status-ok';
+    }
+  }
+
+  public toggleWordWrap(): void {
+    this.setWordWrap(!this.isWordWrap);
+  }
+
+  public setWordWrap(enabled: boolean): void {
+    this.isWordWrap = enabled;
+    try {
+      localStorage.setItem('sim8085_word_wrap', enabled ? 'true' : 'false');
+    } catch {}
+
+    if (this.editorWrapper) {
+      if (enabled) {
+        this.editorWrapper.classList.add('word-wrap');
+      } else {
+        this.editorWrapper.classList.remove('word-wrap');
+      }
+    }
+
+    if (this.textarea) {
+      this.textarea.wrap = enabled ? 'soft' : 'off';
+    }
+
+    const wrapBtn = this.container.querySelector('#btn-wrap');
+    if (wrapBtn) {
+      wrapBtn.classList.toggle('tb-btn-active', enabled);
+    }
+
+    this.updateEditor();
+    this.setStatus(enabled ? '↩️ Ajuste de línea activado (Alt+Z)' : '➡️ Ajuste de línea desactivado');
+  }
+
+  public syncGutterHeights(): void {
+    if (!this.isWordWrap) return;
+    const codeLines = this.highlightOverlay.children;
+    const gutterLines = this.lineNumbers.children;
+    const len = Math.min(codeLines.length, gutterLines.length);
+    for (let i = 0; i < len; i++) {
+      const h = (codeLines[i] as HTMLElement).offsetHeight;
+      if (h > 0) {
+        (gutterLines[i] as HTMLElement).style.height = `${h}px`;
+      }
     }
   }
 

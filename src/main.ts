@@ -904,7 +904,11 @@ class SimulatorApp {
       openInterruptsDialog(this.perifs);
     });
 
-    // View - Flowchart
+    // View - Flowchart & Word Wrap
+    document.getElementById('menu-view-word-wrap')?.addEventListener('click', () => {
+      this.editor.toggleWordWrap();
+    });
+
     document.getElementById('menu-view-flowchart')?.addEventListener('click', () => {
       this.openFlowchartWindow();
     });
@@ -1272,7 +1276,13 @@ class SimulatorApp {
 
   private setupShortcuts(): void {
     document.addEventListener('keydown', (e: KeyboardEvent) => {
-      // Global shortcuts (Ctrl + S, Ctrl + O, Ctrl + / - / 0)
+      // Global shortcuts (Ctrl + S, Ctrl + O, Ctrl + / - / 0, Alt + Z)
+      if (e.altKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        this.editor.toggleWordWrap();
+        return;
+      }
+
       if (e.ctrlKey || e.metaKey) {
         if (e.key.toLowerCase() === 's') {
           e.preventDefault();
