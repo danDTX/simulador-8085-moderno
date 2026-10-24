@@ -1,6 +1,6 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.2.0)
 
-Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado para escritorio con **Electron + TypeScript + Vite**.
+Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 
 ---
 
@@ -11,16 +11,24 @@ Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del 
   - Barra de tareas inferior y menú superior de aplicación estilo tradicional.
   - Soporte completo de **Tema Oscuro** y **Tema Claro**.
 
-- **Editor de Código con Resaltado Sintáctico:**
-  - Coloreado específico para los 246 nemotécnicos del 8085, directivas (`.org`, `.data`, `.define`), registros y números hex/binarios.
-  - Indicador visual del puntero `PC` (`▶`) en la línea de ejecución actual durante el depurado.
-  - Detección y reporte de errores en tiempo real.
-  - Atajos de teclado oficiales:
+- **Editor de Código ASM Multi-Pestaña de Nivel Profesional (v1.2.0):**
+  - Coloreado sintáctico para los 246 nemotécnicos del 8085, directivas (`.org`, `.data`, `.define`), registros y constantes.
+  - **Ajuste de Línea Suave (Soft Word Wrap) con <kbd>Alt+Z</kbd>:** Canaleta de números de línea sincronizada dinámicamente mediante `ResizeObserver`.
+  - **Detección y Confirmación de Archivos No Guardados:** Diálogo modal de protección al cerrar pestañas o salir de la aplicación.
+  - **Guardado Silencioso Directo:** Integración con *File System Access API* para guardar sin descargas repetidas ni alertas molestas.
+  - **Renombrado Rápido:** Doble clic sobre la pestaña activa para renombrar el archivo en caliente.
+  - **Documentación Flotante Inteligente (*Hover Tooltip*):** Inspección de instrucciones con auto-flip vertical y protección de bordes.
+  - Atajos de teclado:
     - `F9`: Ensamblar código y cargar directamente a memoria RAM.
-    - `F7`: Ejecución paso a paso (*Step by step*).
+    - `F7`: Ejecución paso a paso (*Step Into*).
+    - `F8`: Paso sin entrar a subrutinas (*Step Over*).
+    - `Shift + F7`: Paso atrás / Deshacer ciclo (*Step Back*).
     - `F5`: Ejecución continua (*Run / Pause*).
     - `F2`: Reiniciar CPU (*Reset*).
+    - `F1`: Diccionario interactivo de instrucciones.
     - `Ctrl + S`: Guardar archivo `.asm`.
+    - `Alt + Z`: Alternar ajuste de línea (*Word Wrap*).
+    - `Alt + F4`: Salir de la aplicación con confirmación de seguridad.
 
 - **Núcleo de CPU Intel 8085:**
   - Emulación exacta de los 246 códigos de operación oficiales.
