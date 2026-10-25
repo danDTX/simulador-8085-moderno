@@ -1,4 +1,4 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.2.0)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.4.0)
 
 Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 
@@ -10,9 +10,15 @@ Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del 
   - Ventanas arrastrables, redimensionables, minimizables y maximizables.
   - Barra de tareas inferior y menú superior de aplicación estilo tradicional.
   - Soporte completo de **Tema Oscuro** y **Tema Claro**.
+  - **Persistencia Completa de Sesión y Configuración (v1.4.0):** Archivo local `sim8085_config.json` para recordar tema, zoom, ajuste de línea y pestañas abiertas con verificación previa de existencia en disco.
+  - **Historial de Archivos Recientes:** Submenú desplegable en `Archivo -> Archivos Recientes` con acceso rápido y limpieza de historial.
 
-- **Editor de Código ASM Multi-Pestaña de Nivel Profesional (v1.2.0):**
+- **Editor de Código ASM Multi-Pestaña de Nivel Profesional (v1.4.0):**
   - Coloreado sintáctico para los 246 nemotécnicos del 8085, directivas (`.org`, `.data`, `.define`), registros y constantes.
+  - **Numeración de Líneas y Gutter con Scroll Sincronizado 1:1:** Viewport dedicado para números de línea sincronizado al pixel incluso con zoom y soporte de rueda de ratón en el gutter.
+  - **Barra de Estado Inferior estilo VS Code:** Diagnóstico de errores a pantalla ancha, cursor interactivo (`Lín X, Col Y`) y salto directo a la línea causante del fallo al hacer clic.
+  - **Validación Estricta de Parámetros y Aridad:** Chequeo formal de cantidad y validez de operandos para todo el repertorio 8085 (`ADD B, A` es rechazado, verificación de pares válidos, erradicación de alertas bloqueantes del navegador).
+  - **Autocompletado Consciente de Contexto:** Cierre global al hacer clic fuera y supresión de sugerencias redundantes cuando la aridad de la instrucción está satisfecha.
   - **Ajuste de Línea Suave (Soft Word Wrap) con <kbd>Alt+Z</kbd>:** Canaleta de números de línea sincronizada dinámicamente mediante `ResizeObserver`.
   - **Detección y Confirmación de Archivos No Guardados:** Diálogo modal de protección al cerrar pestañas o salir de la aplicación.
   - **Guardado Silencioso Directo:** Integración con *File System Access API* para guardar sin descargas repetidas ni alertas molestas.

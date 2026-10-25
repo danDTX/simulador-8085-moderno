@@ -17,8 +17,8 @@ export function showAboutDialog(): void {
 
       <div class="modal-body" style="padding: 18px 22px;">
         <!-- Banner del Logo Oficial UMSS -->
-        <div style="background: #ffffff; border-radius: 8px; padding: 12px 18px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.25); margin-bottom: 18px;">
-          <img src="./logo_umss.png" alt="Universidad Mayor de San Simón" style="max-height: 82px; max-width: 100%; object-fit: contain;" />
+        <div style="background: #ffffff; border-radius: 8px; padding: 10px 16px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.25); margin-bottom: 18px;">
+          <img src="./logo_umss.png" alt="Universidad Mayor de San Simón" style="width: 100%; height: auto; max-height: 135px; object-fit: contain; display: block;" />
         </div>
 
         <!-- Título y Versión del Software -->
@@ -27,7 +27,7 @@ export function showAboutDialog(): void {
             Simulador Moderno Intel 8085 (Desktop MDI)
           </h2>
           <div style="font-size: 12px; color: var(--text-muted);">
-            Versión 1.2.0 • Clean-Room Reverse Engineering para Entornos Educativos
+            Versión 1.3.0
           </div>
         </div>
 
@@ -56,7 +56,7 @@ export function showAboutDialog(): void {
 
         <!-- Nota conmemorativa -->
         <div style="margin-top: 14px; font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.4;">
-          Desarrollado para la cátedra de Microprocesadores I como herramienta moderna y de alto rendimiento para el análisis, programación y depuración de microprocesadores.
+          Desarrollado para la materia de Microprocesadores I como herramienta moderna y de alto rendimiento para el análisis, programación y depuración de microprocesadores.
         </div>
       </div>
 

@@ -13,6 +13,7 @@ export interface EditorTab {
 export interface EditorCallbacks {
   onChange?: (code: string) => void;
   onTabChange?: (filename: string, code: string) => void;
+  onWordWrapChange?: (enabled: boolean) => void;
   onOpenDelayGen?: () => void;
   onAssemble?: () => void;
   onStep?: () => void;
@@ -31,6 +32,7 @@ export class CodeEditor {
   private lineNumbers: HTMLElement;
   private highlightOverlay: HTMLElement;
   private errorBadge: HTMLElement;
+  private cursorPosBadge: HTMLElement;
   private filenameBadge: HTMLElement;
   private hoverTooltip: HTMLElement;
   private autocompleteBox: HTMLElement;
@@ -46,6 +48,10 @@ export class CodeEditor {
   // Tabs state
   public tabs: EditorTab[] = [];
   public activeTabId: string = '';
+
+  // Status & error navigation state
+  private statusResetTimer: any = null;
+  private currentErrorLine: number | null = null;
 
   // Autocomplete state
   private acItems: { label: string; detail: string; insertText: string }[] = [];
@@ -78,10 +84,7 @@ export class CodeEditor {
           <button id="btn-format" class="tb-btn" title="Formatear Código (Shift+Alt+F)">✨ Formatear</button>
           <button id="btn-wrap" class="tb-btn ${this.isWordWrap ? 'tb-btn-active' : ''}" title="Ajuste de Línea Automático (Alt+Z)">↩️ Ajuste</button>
           <button id="btn-delay-gen" class="tb-btn" title="Asistente Calculador de Retardos">⏱️ Retardo</button>
-          <div class="tb-divider"></div>
           <span id="editor-filename" class="editor-filename-badge" title="Archivo activo">📄 sin_titulo.asm</span>
-          <div class="tb-divider"></div>
-          <span id="editor-status" class="editor-status">Listo</span>
         </div>
         <div class="editor-container">
           <div class="editor-gutters">
@@ -94,6 +97,15 @@ export class CodeEditor {
             <div class="editor-autocomplete-dropdown" id="editor-autocomplete" style="display: none;"></div>
           </div>
         </div>
+        <div class="editor-statusbar" id="editor-statusbar">
+          <div class="editor-status-left" id="editor-status-left">
+            <span id="editor-status" class="editor-status status-ok">Listo</span>
+          </div>
+          <div class="editor-status-right">
+            <span id="editor-cursor-pos" class="editor-cursor-info">Lín 1, Col 1</span>
+            <span class="editor-mode-info">Intel 8085</span>
+          </div>
+        </div>
       </div>
     `;
 
@@ -102,10 +114,18 @@ export class CodeEditor {
     this.lineNumbers = this.container.querySelector('#editor-line-numbers') as HTMLElement;
     this.highlightOverlay = this.container.querySelector('#editor-highlight') as HTMLElement;
     this.errorBadge = this.container.querySelector('#editor-status') as HTMLElement;
+    this.cursorPosBadge = this.container.querySelector('#editor-cursor-pos') as HTMLElement;
     this.filenameBadge = this.container.querySelector('#editor-filename') as HTMLElement;
     this.hoverTooltip = this.container.querySelector('#editor-hover-tooltip') as HTMLElement;
     this.autocompleteBox = this.container.querySelector('#editor-autocomplete') as HTMLElement;
     this.tabsScrollElem = this.container.querySelector('#editor-tabs-scroll') as HTMLElement;
+
+    // Clic interactivo en el mensaje de error para saltar directo a la línea fallida
+    this.errorBadge.addEventListener('click', () => {
+      if (this.currentErrorLine && this.currentErrorLine > 0) {
+        this.goToLine(this.currentErrorLine - 1);
+      }
+    });
 
     // ResizeObserver for dynamic word wrap recalculations
     if (typeof ResizeObserver !== 'undefined') {
@@ -265,6 +285,7 @@ export class CodeEditor {
     this.textarea.addEventListener('input', () => {
       this.isDirty = true;
       this.needsAssemble = true;
+      this.currentErrorLine = null;
       const curTab = this.tabs.find(t => t.id === this.activeTabId);
       if (curTab) {
         curTab.code = this.textarea.value;
@@ -272,11 +293,16 @@ export class CodeEditor {
       }
       this.renderTabs();
       this.setStatus('✏️ Modificado (se compilará al ejecutar)');
+      this.updateCursorPos();
       this.updateEditor();
       this.checkAutocomplete();
       if (this.callbacks.onChange) {
         this.callbacks.onChange(this.textarea.value);
       }
+    });
+
+    this.textarea.addEventListener('keyup', () => {
+      this.updateCursorPos();
     });
 
     this.textarea.addEventListener('scroll', () => {
@@ -289,8 +315,9 @@ export class CodeEditor {
       this.hideAutocomplete();
     });
 
-    // Ctrl + Click to Go to Definition
+    // Ctrl + Click to Go to Definition & Cursor position tracking
     this.textarea.addEventListener('click', (e: MouseEvent) => {
+      this.updateCursorPos();
       if (e.ctrlKey || e.metaKey) {
         this.goToDefinitionAtCursor();
       }
@@ -386,7 +413,12 @@ export class CodeEditor {
       }
     });
 
-    // Gutter click for Breakpoints
+    // Gutter click for Breakpoints & Wheel scroll forwarding
+    this.lineNumbers.addEventListener('wheel', (e: WheelEvent) => {
+      this.textarea.scrollTop += e.deltaY;
+      this.textarea.scrollLeft += e.deltaX;
+    }, { passive: true });
+
     this.lineNumbers.addEventListener('click', (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest('.line-number') as HTMLElement;
       if (!target) return;
@@ -654,6 +686,13 @@ export class CodeEditor {
         this.insertAutocompleteItem(this.acItems[idx]);
       }
     });
+
+    // Cerrar el modal al hacer clic en cualquier otra parte de la ventana o del documento
+    document.addEventListener('pointerdown', (e: PointerEvent) => {
+      if (this.isAcOpen && !this.autocompleteBox.contains(e.target as Node)) {
+        this.hideAutocomplete();
+      }
+    });
   }
 
   private checkAutocomplete(): void {
@@ -740,6 +779,58 @@ export class CodeEditor {
       currentOpcode = tokens[0].toUpperCase();
     }
 
+    // Validación de aridad para autocompletado inteligente
+    if (isOperandZone) {
+      const ZERO_OPERANDS = new Set([
+        'NOP', 'HLT', 'RET', 'RC', 'RNC', 'RZ', 'RNZ', 'RP', 'RM', 'RPE', 'RPO',
+        'DAA', 'CMA', 'STC', 'CMC', 'RLC', 'RRC', 'RAL', 'RAR', 'EI', 'DI',
+        'RIM', 'SIM', 'XCHG', 'XTHL', 'SPHL', 'PCHL'
+      ]);
+
+      if (ZERO_OPERANDS.has(currentOpcode)) {
+        this.hideAutocomplete();
+        return;
+      }
+
+      const ONE_OPERAND_SET = new Set([
+        'ADD', 'ADC', 'SUB', 'SBB', 'ANA', 'ORA', 'XRA', 'CMP', 'INR', 'DCR',
+        'INX', 'DCX', 'DAD', 'PUSH', 'POP', 'LDAX', 'STAX',
+        'ADI', 'ACI', 'SUI', 'SBI', 'ANI', 'XRI', 'ORI', 'CPI', 'IN', 'OUT', 'RST',
+        'CALL', 'CC', 'CNC', 'CZ', 'CNZ', 'CM', 'CP', 'CPE', 'CPO',
+        'JMP', 'JC', 'JNC', 'JZ', 'JNZ', 'JM', 'JP', 'JPE', 'JPO',
+        'LDA', 'STA', 'LHLD', 'SHLD'
+      ]);
+
+      if (ONE_OPERAND_SET.has(currentOpcode)) {
+        // Instrucciones de 1 solo parámetro: no deben tener coma ni más operandos
+        if (codeOnly.includes(',')) {
+          this.hideAutocomplete();
+          return;
+        }
+        // Si ya completó el operando y dejó un espacio posterior (ej. 'ADD B ')
+        if (tokens.length >= 2 && /\s$/.test(codeOnly)) {
+          this.hideAutocomplete();
+          return;
+        }
+      } else if (currentOpcode === 'MOV') {
+        const commaCount = (codeOnly.match(/,/g) || []).length;
+        if (commaCount > 1) {
+          this.hideAutocomplete();
+          return;
+        }
+        if (commaCount === 1 && /\s$/.test(codeOnly) && tokens.length >= 3) {
+          this.hideAutocomplete();
+          return;
+        }
+      } else if (currentOpcode === 'MVI') {
+        // En MVI, el segundo operando tras la coma es dato numérico, no registro
+        if (codeOnly.includes(',')) {
+          this.hideAutocomplete();
+          return;
+        }
+      }
+    }
+
     // Palabra siendo escrita actualmente
     let start = pos;
     while (start > 0 && /[a-zA-Z0-9_\.]/.test(text[start - 1])) {
@@ -760,7 +851,9 @@ export class CodeEditor {
     // -------------------------------------------------------------
     if (isOperandZone) {
       const jumpCallOpcodes = ['CALL', 'CC', 'CNC', 'CZ', 'CNZ', 'CM', 'CP', 'CPE', 'CPO', 'JMP', 'JC', 'JNC', 'JZ', 'JNZ', 'JM', 'JP', 'JPE', 'JPO'];
-      if (jumpCallOpcodes.includes(currentOpcode)) {
+      const isLxiLabelZone = (currentOpcode === 'LXI' && codeOnly.includes(','));
+
+      if (jumpCallOpcodes.includes(currentOpcode) || isLxiLabelZone) {
         // Autocompletar con todas las ETIQUETAS del documento
         const labels = DocsHelper.scanLabels(text);
         for (const [name, info] of labels.entries()) {
@@ -774,14 +867,14 @@ export class CodeEditor {
         }
       } else {
         // Autocompletar con los REGISTROS permitidos según la instrucción
-        let allowedRegs = ['A', 'B', 'C', 'D', 'E', 'H', 'L', 'M', 'SP', 'PSW'];
+        let allowedRegs: string[] = [];
         if (['LDAX', 'STAX'].includes(currentOpcode)) {
           allowedRegs = ['B', 'D'];
         } else if (['PUSH', 'POP'].includes(currentOpcode)) {
           allowedRegs = ['PSW', 'B', 'D', 'H'];
-        } else if (['INX', 'DCX', 'DAD', 'LXI'].includes(currentOpcode)) {
+        } else if (['INX', 'DCX', 'DAD'].includes(currentOpcode) || (currentOpcode === 'LXI' && !codeOnly.includes(','))) {
           allowedRegs = ['B', 'D', 'H', 'SP'];
-        } else if (['MOV', 'ADD', 'ADC', 'SUB', 'SBB', 'ANA', 'ORA', 'XRA', 'CMP', 'INR', 'DCR'].includes(currentOpcode)) {
+        } else if (['MOV', 'ADD', 'ADC', 'SUB', 'SBB', 'ANA', 'ORA', 'XRA', 'CMP', 'INR', 'DCR'].includes(currentOpcode) || (currentOpcode === 'MVI' && !codeOnly.includes(','))) {
           allowedRegs = ['A', 'B', 'C', 'D', 'E', 'H', 'L', 'M'];
         }
 
@@ -1116,11 +1209,56 @@ export class CodeEditor {
     this.switchTab(newTab.id);
   }
 
-  public setStatus(msg: string, isError: boolean = false, isWarning: boolean = false): void {
-    this.errorBadge.textContent = msg;
+  public updateCursorPos(): void {
+    if (!this.cursorPosBadge) return;
+    const pos = this.textarea.selectionStart;
+    const text = this.textarea.value.substring(0, pos);
+    const lines = text.split('\n');
+    const line = lines.length;
+    const col = lines[lines.length - 1].length + 1;
+    this.cursorPosBadge.textContent = `Lín ${line}, Col ${col}`;
+  }
+
+  public setStatus(msg: string, isError: boolean = false, isWarning: boolean = false, errorLine?: number): void {
+    if (this.statusResetTimer) {
+      clearTimeout(this.statusResetTimer);
+      this.statusResetTimer = null;
+    }
+
+    let lineToJump = errorLine;
+    if (isError && !lineToJump) {
+      const match = msg.match(/l[íi]nea\s+(\d+)/i);
+      if (match) lineToJump = parseInt(match[1], 10);
+    }
+    this.currentErrorLine = lineToJump ?? null;
+
+    const icon = isError ? '❌ ' : isWarning ? '⚠️ ' : (msg.startsWith('✓') || msg.startsWith('✨') || msg.startsWith('📍') || msg.startsWith('✏️') || msg.startsWith('📄')) ? '' : '✓ ';
+    const fullMsg = (isError || isWarning) ? `${icon}${msg}` : msg;
+
+    this.errorBadge.textContent = fullMsg;
     const cls = isError ? 'status-error' : isWarning ? 'status-warning' : 'status-ok';
     this.errorBadge.className = `editor-status ${cls}`;
-    this.errorBadge.title = msg;
+
+    if (isError && this.currentErrorLine) {
+      this.errorBadge.title = `${msg} (Haz clic para ir a la línea ${this.currentErrorLine})`;
+      this.errorBadge.style.cursor = 'pointer';
+    } else {
+      this.errorBadge.title = msg;
+      this.errorBadge.style.cursor = 'default';
+    }
+
+    // Volver a 'Listo' tras 3 segundos para mensajes de éxito
+    if (!isError && !isWarning && msg !== 'Listo' && !msg.startsWith('✏️')) {
+      this.statusResetTimer = setTimeout(() => {
+        if (!this.isDirty) {
+          this.errorBadge.textContent = 'Listo';
+          this.errorBadge.className = 'editor-status status-ok';
+          this.errorBadge.title = 'Listo';
+          this.errorBadge.style.cursor = 'default';
+          this.currentErrorLine = null;
+        }
+      }, 3000);
+    }
   }
 
   public setExecutionLine(lineNum: number): void {
@@ -1209,22 +1347,26 @@ export class CodeEditor {
     if (this.isWordWrap) {
       requestAnimationFrame(() => {
         this.syncGutterHeights();
+        this.syncScroll();
       });
     } else {
       const gutterLines = this.lineNumbers.children;
       for (let i = 0; i < gutterLines.length; i++) {
         (gutterLines[i] as HTMLElement).style.height = '';
       }
+      this.syncScroll();
     }
 
     // Linter / Validation check for unresolved labels
     const broken = DocsHelper.validateLabels(text);
     if (broken.length > 0) {
-      this.errorBadge.innerHTML = `<span style="color: #f85149;" title="Etiqueta no definida en el código">⚠ ${broken.length} etiqueta(s) pendiente(s): ${broken.map(b => b.label).slice(0, 2).join(', ')}</span>`;
-      this.errorBadge.className = 'editor-status status-error';
-    } else {
-      this.errorBadge.textContent = 'Listo';
-      this.errorBadge.className = 'editor-status status-ok';
+      this.setStatus(`${broken.length} etiqueta(s) pendiente(s): ${broken.map(b => b.label).slice(0, 2).join(', ')}`, false, true);
+    } else if (!this.currentErrorLine) {
+      if (this.isDirty) {
+        this.setStatus('✏️ Modificado (se compilará al ejecutar)');
+      } else {
+        this.setStatus('Listo');
+      }
     }
   }
 
@@ -1257,6 +1399,9 @@ export class CodeEditor {
 
     this.updateEditor();
     this.setStatus(enabled ? '↩️ Ajuste de línea activado (Alt+Z)' : '➡️ Ajuste de línea desactivado');
+    if (this.callbacks.onWordWrapChange) {
+      this.callbacks.onWordWrapChange(enabled);
+    }
   }
 
   public syncGutterHeights(): void {

@@ -18,3 +18,7 @@ yarn-error.log*
 # IDEs y SO
 .DS_Store
 Thumbs.db
+
+# Almacenamiento y configuración local de sesión
+.storage/
+sim8085_config.json

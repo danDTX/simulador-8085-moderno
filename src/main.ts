@@ -20,6 +20,7 @@ import { createDelayGeneratorDialog } from './ui/dialogs/delayGeneratorDialog.js
 import { createFlowchartPanel, FlowchartPanel } from './ui/panels/flowchartPanel.js';
 import { createInstructionsPanel, InstructionsPanelInstance } from './ui/panels/instructionsPanel.js';
 import { AssemblyResult } from './core/types.js';
+import { ConfigManager, OpenTabConfig } from './core/configManager.js';
 
 class SimulatorApp {
   private cpu = new Intel8085();
@@ -90,6 +91,9 @@ class SimulatorApp {
           localStorage.setItem('sim8085_current_filename', filename);
         } catch {}
         this.scheduleAutoSave(code);
+      },
+      onWordWrapChange: () => {
+        this.saveAppState();
       },
       onOpenDelayGen: () => this.openDelayGeneratorWindow(),
       onAssemble: () => this.assembleCode(),
@@ -300,20 +304,175 @@ class SimulatorApp {
   }
 
   private async loadInitialProgram(): Promise<void> {
-    const savedCode = localStorage.getItem('sim8085_saved_code');
-    const savedName = localStorage.getItem('sim8085_current_filename') || 'sin_titulo.asm';
-    if (savedCode !== null && savedCode.trim().length > 0) {
-      this.editor.setValue(savedCode);
-      this.setCurrentFileName(savedName);
+    const config = await ConfigManager.load();
+
+    // 1. Aplicar tema guardado
+    if (config.theme === 'light') {
+      document.body.classList.add('light-theme');
+      const qBtn = document.getElementById('btn-quick-theme');
+      if (qBtn) qBtn.textContent = '☀️';
+    } else {
+      document.body.classList.remove('light-theme');
+      const qBtn = document.getElementById('btn-quick-theme');
+      if (qBtn) qBtn.textContent = '🌙';
+    }
+
+    // 2. Aplicar Word Wrap guardado
+    if (typeof config.wordWrap === 'boolean') {
+      this.editor.setWordWrap(config.wordWrap);
+    }
+
+    // 3. Aplicar Zoom guardado
+    if (typeof config.zoomLevel === 'number' && config.zoomLevel > 0) {
+      this.applyZoom(config.zoomLevel, true);
+    }
+
+    // 4. Renderizar historial de archivos recientes
+    this.renderRecentFilesMenu();
+
+    // 5. Restaurar pestañas abiertas en la sesión anterior
+    let restoredCount = 0;
+    if (config.openTabs && config.openTabs.length > 0) {
+      for (const tabInfo of config.openTabs) {
+        if (tabInfo.filePath) {
+          const exists = await ConfigManager.checkFileExists(tabInfo.filePath);
+          if (exists) {
+            const content = await ConfigManager.readNativeFile(tabInfo.filePath);
+            if (content !== null) {
+              this.editor.openTab(tabInfo.name, content, undefined, tabInfo.filePath);
+              restoredCount++;
+              continue;
+            }
+          }
+          // Si el archivo ya no existe en disco, se omite silenciosamente
+        } else if (tabInfo.code && tabInfo.code.trim().length > 0) {
+          this.editor.openTab(tabInfo.name, tabInfo.code);
+          restoredCount++;
+        }
+      }
+    }
+
+    // Fallback a almacenamiento legacy si no se restauraron pestañas desde openTabs
+    if (restoredCount === 0) {
+      const savedCode = localStorage.getItem('sim8085_saved_code');
+      const savedName = localStorage.getItem('sim8085_current_filename');
+      if (savedCode !== null && savedCode.trim().length > 0) {
+        const name = savedName || 'sin_titulo.asm';
+        this.editor.openTab(name, savedCode);
+        restoredCount++;
+      }
+    }
+
+    if (restoredCount > 0) {
+      const targetTab = this.editor.tabs.find(t => t.name === config.activeTabName) || this.editor.tabs[0];
+      if (targetTab) {
+        this.editor.switchTab(targetTab.id, true);
+        this.setCurrentFileName(targetTab.name);
+      }
       this.assembleCode();
-      this.editor.setStatus(`💾 [${savedName}] restaurado de la sesión anterior`);
+      this.editor.setStatus(`💾 Sesión restaurada (${restoredCount} archivo${restoredCount > 1 ? 's' : ''})`);
+    } else {
+      this.editor.setValue('');
+      this.setCurrentFileName('sin_titulo.asm');
+      this.editor.setStatus('Listo (Editor en blanco)');
+    }
+  }
+
+  public async saveAppState(): Promise<void> {
+    this.editor.syncCurrentTab();
+    const openTabs: OpenTabConfig[] = this.editor.tabs.map(t => ({
+      name: t.name,
+      filePath: t.filePath,
+      code: t.code
+    }));
+    const curTab = this.editor.getActiveTab();
+    const activeTabName = curTab ? curTab.name : (this.currentFileName || 'sin_titulo.asm');
+
+    await ConfigManager.save({
+      openTabs,
+      activeTabName,
+      theme: document.body.classList.contains('light-theme') ? 'light' : 'dark',
+      wordWrap: this.editor.isWordWrap,
+      zoomLevel: this.currentZoom
+    });
+  }
+
+  private renderRecentFilesMenu(): void {
+    const listContainer = document.getElementById('menu-file-recent-list');
+    if (!listContainer) return;
+
+    const config = ConfigManager.get();
+    const recent = config.recentFiles || [];
+
+    if (recent.length === 0) {
+      listContainer.innerHTML = '<div class="menu-recent-empty" style="padding: 8px 14px; font-size: 11px; color: var(--text-muted);">Sin archivos recientes</div>';
       return;
     }
 
-    // Primera ejecución (o sesión limpia): Hoja completamente en blanco
-    this.editor.setValue('');
-    this.setCurrentFileName('sin_titulo.asm');
-    this.editor.setStatus('Listo (Editor en blanco)');
+    listContainer.innerHTML = '';
+    recent.forEach((filePath) => {
+      const fileName = filePath.split(/[\\/]/).pop() || filePath;
+      const btn = document.createElement('button');
+      btn.className = 'menu-recent-item';
+      btn.title = filePath;
+      btn.innerHTML = `
+        <span class="menu-recent-item-name">📄 ${fileName}</span>
+        <span class="menu-recent-item-path">${filePath}</span>
+      `;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.menu-dropdown').forEach(d => d.classList.remove('show'));
+        this.openRecentFile(filePath);
+      });
+      listContainer.appendChild(btn);
+    });
+
+    const divider = document.createElement('div');
+    divider.className = 'menu-divider';
+    listContainer.appendChild(divider);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'menu-recent-clear';
+    clearBtn.style.padding = '8px 14px';
+    clearBtn.style.fontSize = '11px';
+    clearBtn.style.color = '#ef4444';
+    clearBtn.innerHTML = '🗑️ Limpiar Historial';
+    clearBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      document.querySelectorAll('.menu-dropdown').forEach(d => d.classList.remove('show'));
+      await ConfigManager.clearRecentFiles();
+      this.renderRecentFilesMenu();
+    });
+    listContainer.appendChild(clearBtn);
+  }
+
+  public async openRecentFile(filePath: string): Promise<void> {
+    const exists = await ConfigManager.checkFileExists(filePath);
+    if (!exists) {
+      this.editor.setStatus(`⚠️ El archivo "${filePath}" ya no existe o fue movido`, true, false);
+      const currentRecents = ConfigManager.get().recentFiles.filter(p => p !== filePath);
+      await ConfigManager.save({ recentFiles: currentRecents });
+      this.renderRecentFilesMenu();
+      return;
+    }
+
+    const content = await ConfigManager.readNativeFile(filePath);
+    if (content === null) {
+      this.editor.setStatus(`⚠️ No se pudo leer el archivo "${filePath}"`, true, false);
+      return;
+    }
+
+    const fileName = filePath.split(/[\\/]/).pop() || 'programa.asm';
+    this.editor.openTab(fileName, content, undefined, filePath);
+    this.setCurrentFileName(fileName);
+    this.saveToStorage(content);
+    await ConfigManager.addRecentFile(filePath);
+    this.renderRecentFilesMenu();
+    await this.saveAppState();
+
+    this.winManager.bringToFront('editor');
+    this.assembleCode();
+    this.editor.setStatus(`📂 Abierto: ${fileName}`);
   }
 
   public assembleCode(): boolean {
@@ -323,8 +482,7 @@ class SimulatorApp {
 
     if (!result.success) {
       const err = result.diagnostics.find(d => d.isError);
-      this.editor.setStatus(`Error línea ${err?.line}: ${err?.message}`, true);
-      alert(`Error en ensamblado:\nLínea ${err?.line}: ${err?.message}`);
+      this.editor.setStatus(`Error línea ${err?.line}: ${err?.message}`, true, false, err?.line);
       return false;
     }
 
@@ -334,6 +492,11 @@ class SimulatorApp {
     this.cpu.memory.set(result.memory);
     this.cpu.regs.pc = result.entryPoint;
     this.cpu.halted = false;
+
+    this.editor.needsAssemble = false;
+    this.editor.isDirty = false;
+    const byteCount = result.codeAddresses.size;
+    this.editor.setStatus(`Ensamblado con éxito (${byteCount} bytes en memoria)`, false, false);
 
     // Auto-detect interrupt handlers configured for keyboard in assembly program
     if (result.memory[0x0024] !== 0) {
@@ -937,7 +1100,7 @@ class SimulatorApp {
       if (qBtn) qBtn.textContent = '☀️';
     }
 
-    const toggleTheme = () => {
+    const toggleTheme = async () => {
       document.body.classList.toggle('light-theme');
       const isLight = document.body.classList.contains('light-theme');
       try {
@@ -945,6 +1108,7 @@ class SimulatorApp {
       } catch {}
       const qBtn = document.getElementById('btn-quick-theme');
       if (qBtn) qBtn.textContent = isLight ? '☀️' : '🌙';
+      await ConfigManager.save({ theme: isLight ? 'light' : 'dark' });
     };
 
     document.getElementById('menu-view-theme')?.addEventListener('click', toggleTheme);
@@ -984,7 +1148,36 @@ class SimulatorApp {
   }
 
   public async openAsmFile(): Promise<void> {
-    // 1. Modern Chromium / Edge WebView2 File System Access API
+    // 1. Neutralino Native API (Prioridad desktop para obtener ruta absoluta y registrar en recientes)
+    const winNeu = (window as any).Neutralino;
+    if (winNeu && winNeu.os && winNeu.filesystem) {
+      try {
+        const entries = await winNeu.os.showOpenDialog('Abrir archivo ASM', {
+          filters: [{ name: 'Código Ensamblador (*.asm, *.s, *.txt)', extensions: ['asm', 's', 'txt'] }],
+          multiSelections: false
+        });
+        if (entries && entries.length > 0) {
+          const filePath = entries[0];
+          const text = await winNeu.filesystem.readFile(filePath);
+          const fileName = filePath.split(/[\\/]/).pop() || 'programa.asm';
+          this.editor.openTab(fileName, text, undefined, filePath);
+          this.setCurrentFileName(fileName);
+          this.saveToStorage(text);
+          await ConfigManager.addRecentFile(filePath);
+          this.renderRecentFilesMenu();
+          await this.saveAppState();
+          this.winManager.bringToFront('editor');
+          this.assembleCode();
+          this.editor.setStatus(`📂 Abierto: ${fileName}`);
+          return;
+        }
+        return;
+      } catch (err) {
+        console.warn('Neutralino openDialog failed:', err);
+      }
+    }
+
+    // 2. Modern Chromium / Edge WebView2 File System Access API
     if (typeof (window as any).showOpenFilePicker === 'function') {
       try {
         const [handle] = await (window as any).showOpenFilePicker({
@@ -1003,6 +1196,7 @@ class SimulatorApp {
         this.editor.openTab(file.name, text, handle);
         this.setCurrentFileName(file.name);
         this.saveToStorage(text);
+        await this.saveAppState();
         this.winManager.bringToFront('editor');
         this.assembleCode();
         this.editor.setStatus(`📂 Abierto: ${file.name}`);
@@ -1010,31 +1204,6 @@ class SimulatorApp {
       } catch (err: any) {
         if (err.name === 'AbortError') return;
         console.warn('showOpenFilePicker failed, falling back:', err);
-      }
-    }
-
-    // 2. Neutralino Native API
-    const winNeu = (window as any).Neutralino;
-    if (winNeu && winNeu.os && winNeu.filesystem) {
-      try {
-        const entries = await winNeu.os.showOpenDialog('Abrir archivo ASM', {
-          filters: [{ name: 'Código Ensamblador (*.asm, *.s, *.txt)', extensions: ['asm', 's', 'txt'] }],
-          multiSelections: false
-        });
-        if (entries && entries.length > 0) {
-          const filePath = entries[0];
-          const text = await winNeu.filesystem.readFile(filePath);
-          const fileName = filePath.split(/[\\/]/).pop() || 'programa.asm';
-          this.editor.openTab(fileName, text, undefined, filePath);
-          this.setCurrentFileName(fileName);
-          this.saveToStorage(text);
-          this.winManager.bringToFront('editor');
-          this.assembleCode();
-          this.editor.setStatus(`📂 Abierto: ${fileName}`);
-          return;
-        }
-      } catch (err) {
-        console.warn('Neutralino openDialog failed:', err);
       }
     }
 
@@ -1051,6 +1220,7 @@ class SimulatorApp {
           this.editor.openTab(file.name, re.target.result);
           this.setCurrentFileName(file.name);
           this.saveToStorage(re.target.result);
+          this.saveAppState();
           this.winManager.bringToFront('editor');
           this.assembleCode();
           this.editor.setStatus(`📂 Abierto: ${file.name}`);
@@ -1071,7 +1241,27 @@ class SimulatorApp {
     const content = this.editor.getValue();
     this.saveToStorage(content);
 
-    // 1. Direct overwrite if file already has a handle/path and NOT forcing Save As
+    // 1. Sobrescritura directa si la pestaña tiene ruta nativa asignada
+    if (!forceSaveAs && curTab.filePath) {
+      const winNeu = (window as any).Neutralino;
+      if (winNeu && winNeu.filesystem) {
+        try {
+          await winNeu.filesystem.writeFile(curTab.filePath, content);
+          curTab.isDirty = false;
+          this.editor.isDirty = false;
+          this.editor.renderTabs();
+          this.editor.setStatus(`💾 Guardado: ${curTab.name}`);
+          await ConfigManager.addRecentFile(curTab.filePath);
+          this.renderRecentFilesMenu();
+          await this.saveAppState();
+          return true;
+        } catch (err) {
+          console.warn('Error sobrescribiendo mediante Neutralino filePath:', err);
+        }
+      }
+    }
+
+    // 2. Sobrescritura directa si la pestaña tiene handle de navegador
     if (!forceSaveAs && curTab.fileHandle) {
       try {
         const writable = await curTab.fileHandle.createWritable();
@@ -1082,33 +1272,48 @@ class SimulatorApp {
         this.editor.isDirty = false;
         this.editor.renderTabs();
         this.editor.setStatus(`💾 Guardado: ${curTab.name}`);
+        await this.saveAppState();
         return true;
       } catch (err) {
         console.warn('Error sobrescribiendo mediante fileHandle, solicitando ubicación:', err);
       }
     }
 
-    if (!forceSaveAs && curTab.filePath) {
-      const winNeu = (window as any).Neutralino;
-      if (winNeu && winNeu.filesystem) {
-        try {
-          await winNeu.filesystem.writeFile(curTab.filePath, content);
+    // 3. Neutralino Native Dialog (Prioridad en app de escritorio para obtener ruta nativa)
+    const winNeu = (window as any).Neutralino;
+    if (winNeu && winNeu.os && winNeu.filesystem) {
+      try {
+        const targetPath = await winNeu.os.showSaveDialog('Guardar programa ASM', {
+          defaultPath: curTab.name || 'programa.asm',
+          filters: [{ name: 'Código Ensamblador (*.asm)', extensions: ['asm', 's', 'txt'] }]
+        });
+        if (targetPath) {
+          await winNeu.filesystem.writeFile(targetPath, content);
+          curTab.filePath = targetPath;
+          const fileName = targetPath.split(/[\\/]/).pop() || curTab.name;
+          curTab.name = fileName;
+          this.setCurrentFileName(fileName);
           curTab.isDirty = false;
           this.editor.isDirty = false;
           this.editor.renderTabs();
-          this.editor.setStatus(`💾 Guardado: ${curTab.name}`);
+          this.editor.setStatus(`💾 Guardado: ${fileName}`);
+          await ConfigManager.addRecentFile(targetPath);
+          this.renderRecentFilesMenu();
+          await this.saveAppState();
           return true;
-        } catch (err) {
-          console.warn('Error sobrescribiendo mediante Neutralino filePath:', err);
+        } else {
+          return false;
         }
+      } catch (err) {
+        console.warn('Neutralino showSaveDialog failed:', err);
       }
     }
 
-    // 2. Modern File System Access API (Prompts where to save, remembers path, NO downloads popup)
+    // 4. Modern File System Access API
     if (typeof (window as any).showSaveFilePicker === 'function') {
       try {
         const handle = await (window as any).showSaveFilePicker({
-          id: 'sim8085_asm_dir', // Remembers folder!
+          id: 'sim8085_asm_dir',
           suggestedName: curTab.name || 'programa.asm',
           types: [
             {
@@ -1130,6 +1335,7 @@ class SimulatorApp {
         this.editor.isDirty = false;
         this.editor.renderTabs();
         this.editor.setStatus(`💾 Guardado: ${file.name}`);
+        await this.saveAppState();
         return true;
       } catch (err: any) {
         if (err.name === 'AbortError') return false;
@@ -1137,34 +1343,7 @@ class SimulatorApp {
       }
     }
 
-    // 3. Neutralino Native Dialog fallback
-    const winNeu = (window as any).Neutralino;
-    if (winNeu && winNeu.os && winNeu.filesystem) {
-      try {
-        const targetPath = await winNeu.os.showSaveDialog('Guardar programa ASM', {
-          defaultPath: curTab.name || 'programa.asm',
-          filters: [{ name: 'Código Ensamblador (*.asm)', extensions: ['asm', 's', 'txt'] }]
-        });
-        if (targetPath) {
-          await winNeu.filesystem.writeFile(targetPath, content);
-          curTab.filePath = targetPath;
-          const fileName = targetPath.split(/[\\/]/).pop() || curTab.name;
-          curTab.name = fileName;
-          this.setCurrentFileName(fileName);
-          curTab.isDirty = false;
-          this.editor.isDirty = false;
-          this.editor.renderTabs();
-          this.editor.setStatus(`💾 Guardado: ${fileName}`);
-          return true;
-        } else {
-          return false;
-        }
-      } catch (err) {
-        console.warn('Neutralino showSaveDialog failed:', err);
-      }
-    }
-
-    // 4. Last resort browser download fallback
+    // 5. Last resort browser download fallback
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1176,10 +1355,12 @@ class SimulatorApp {
     this.editor.isDirty = false;
     this.editor.renderTabs();
     this.editor.setStatus(`💾 Descargado: ${curTab.name}`);
+    await this.saveAppState();
     return true;
   }
 
   public async handleAppExit(): Promise<void> {
+    await this.saveAppState();
     if (!this.editor.hasUnsavedChanges()) {
       this.exitApp();
       return;
@@ -1236,6 +1417,7 @@ class SimulatorApp {
       }
       if (winNeu.events && typeof winNeu.events.on === 'function') {
         winNeu.events.on('windowClose', async () => {
+          await this.saveAppState();
           await this.handleAppExit();
         });
       }
@@ -1243,6 +1425,7 @@ class SimulatorApp {
 
     // 2. Browser beforeunload fallback
     window.addEventListener('beforeunload', (e) => {
+      this.saveAppState();
       if (this.editor && this.editor.hasUnsavedChanges()) {
         e.preventDefault();
         e.returnValue = '';
@@ -1256,13 +1439,34 @@ class SimulatorApp {
     this.saveToStorage(code);
     const result = this.assembler.assemble(code);
     if (!result.success) {
-      alert('Corrige los errores antes de exportar el archivo objeto .o');
+      const err = result.diagnostics.find(d => d.isError);
+      this.editor.setStatus(`Corrige el error antes de exportar: Línea ${err?.line} (${err?.message})`, true, false, err?.line);
       return;
     }
 
     const baseName = (this.currentFileName || 'programa').replace(/\.(asm|s|txt)$/i, '');
 
-    // 1. File System Access API
+    // 1. Neutralino Native API (Prioridad desktop)
+    const winNeu = (window as any).Neutralino;
+    if (winNeu && winNeu.os && winNeu.filesystem) {
+      try {
+        const targetPath = await winNeu.os.showSaveDialog('Exportar archivo objeto .o', {
+          defaultPath: `${baseName}.o`,
+          filters: [{ name: 'Archivo Objeto (*.o)', extensions: ['o'] }]
+        });
+        if (targetPath) {
+          await winNeu.filesystem.writeFile(targetPath, result.objectCodeText);
+          this.editor.setStatus(`💾 Objeto exportado: ${baseName}.o`);
+          return;
+        } else {
+          return;
+        }
+      } catch (err) {
+        console.warn('Neutralino exportObject failed:', err);
+      }
+    }
+
+    // 2. File System Access API
     if (typeof (window as any).showSaveFilePicker === 'function') {
       try {
         const handle = await (window as any).showSaveFilePicker({
@@ -1283,24 +1487,6 @@ class SimulatorApp {
       } catch (err: any) {
         if (err.name === 'AbortError') return;
         console.warn('showSaveFilePicker exportObject failed:', err);
-      }
-    }
-
-    // 2. Neutralino Native API
-    const winNeu = (window as any).Neutralino;
-    if (winNeu && winNeu.os && winNeu.filesystem) {
-      try {
-        const targetPath = await winNeu.os.showSaveDialog('Exportar archivo objeto .o', {
-          defaultPath: `${baseName}.o`,
-          filters: [{ name: 'Archivo Objeto (*.o)', extensions: ['o'] }]
-        });
-        if (targetPath) {
-          await winNeu.filesystem.writeFile(targetPath, result.objectCodeText);
-          this.editor.setStatus(`💾 Objeto exportado: ${baseName}.o`);
-          return;
-        }
-      } catch (err) {
-        console.warn('Neutralino exportObject failed:', err);
       }
     }
 
@@ -1341,13 +1527,16 @@ class SimulatorApp {
     if (this.autoSaveTimeout) clearTimeout(this.autoSaveTimeout);
     this.autoSaveTimeout = setTimeout(() => {
       this.saveToStorage(code);
+      this.saveAppState();
     }, 300);
   }
 
   private currentZoom: number = 1.0;
 
-  public applyZoom(delta: number): void {
-    if (delta === 0) {
+  public applyZoom(delta: number, isAbsolute: boolean = false): void {
+    if (isAbsolute) {
+      this.currentZoom = Math.min(2.0, Math.max(0.75, Math.round(delta * 100) / 100));
+    } else if (delta === 0) {
       this.currentZoom = 1.0;
     } else {
       this.currentZoom = Math.min(2.0, Math.max(0.75, Math.round((this.currentZoom + delta) * 100) / 100));
@@ -1365,7 +1554,10 @@ class SimulatorApp {
     root.style.setProperty('--editor-line-height', `${editorLineHeight}px`);
 
     this.editor.syncScroll();
-    this.editor.setStatus(`🔍 Zoom: ${Math.round(this.currentZoom * 100)}% (${editorFontSize}px)`);
+    ConfigManager.save({ zoomLevel: this.currentZoom });
+    if (!isAbsolute) {
+      this.editor.setStatus(`🔍 Zoom: ${Math.round(this.currentZoom * 100)}% (${editorFontSize}px)`);
+    }
   }
 
   private setupShortcuts(): void {

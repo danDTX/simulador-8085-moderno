@@ -4,6 +4,60 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.4.0] - 2026-10-24
+
+### ✨ Nuevas Funcionalidades
+- **Persistencia Completa de Configuración y Sesión en Disco (`sim8085_config.json`):**
+  - Módulo `ConfigManager` desacoplado que almacena y restaura automáticamente el tema (oscuro/claro), nivel de zoom, ajuste de línea (Word Wrap) y pestañas abiertas mediante `Neutralino.filesystem` con respaldo en `Neutralino.storage` y `localStorage`.
+  - Fijación del puerto HTTP de Neutralino en `38085` en `neutralino.config.json` para estabilizar el origen web y prevenir que Microsoft Edge WebView2 aísle o borre el `localStorage` en cada arranque.
+  - Verificación física de existencia de archivos en disco (`checkFileExists`) antes de reabrir pestañas; si un archivo fue eliminado o movido externamente, se descarta silenciosamente y se ofrece un lienzo nuevo (`sin_titulo.asm`).
+- **Historial de Archivos Recientes:**
+  - Nuevo submenú en `Archivo -> Archivos Recientes` con hasta 8 entradas ordenadas cronológicamente, deduplicación, normalización de rutas y acción para limpiar historial.
+- **Logo de Bienvenida Escalado:**
+  - Rediseño del contenedor de la ventana de bienvenida para aprovechar el 100% del cuadro disponible.
+
+### 🐛 Correcciones de Errores (Bug Fixes)
+- **Corrección de Congelación en el Scroll de Números de Línea:**
+  - Se asignó `height: 100%; overflow: hidden; box-sizing: border-box;` a `.editor-line-numbers` en CSS, resolviendo la limitación donde elementos con `overflow: visible` ignoraban la asignación programática de `scrollTop`.
+  - Ahora la canaleta de números se desplaza 1:1 en píxeles en sincronía absoluta con el código y el overlay sintáctico, tanto en scroll manual como con zoom ampliado.
+- **Soporte de Rueda de Ratón sobre el Gutter:**
+  - Reenvío de eventos `wheel` desde la barra de números hacia el textarea del editor para scroll natural al pasar el puntero sobre los números.
+- **Sincronización en Cambios de Zoom y Render:**
+  - Invocación garantizada de `syncScroll()` tras cada redibujado y ajuste de escala de interfaz.
+
+---
+
+## [1.3.0] - 2026-10-24
+
+### ✨ Nuevas Funcionalidades
+- **Barra de Estado Inferior estilo VS Code (`.editor-statusbar`):**
+  - Panel horizontal en el pie de la ventana del editor con 100% de ancho útil para lectura cómoda de diagnósticos y mensajes largos.
+  - Indicador de telemetría de cursor en tiempo real (`Lín X, Col Y`) e identificación de arquitectura activa (`Intel 8085`).
+  - Éxitos temporizados: mensajes afirmativos en verde con retorno automático a estado `Listo` tras 3 segundos.
+- **Navegación Interactiva al Error de Ensamblado:**
+  - Al ocurrir un error de sintaxis o compilación, el mensaje en la barra de estado se resalta en rojo interactivo y, al hacer clic sobre él, enfoca y desplaza el editor (`goToLine`) directamente a la línea exacta del fallo.
+- **Validación Estricta de Parámetros y Aridad de Instrucciones:**
+  - Chequeo formal de cantidad y tipos de operandos durante el ensamblado:
+    * ALU (`ADD`, `ADC`, `SUB`, `SBB`, `ANA`, `XRA`, `ORA`, `CMP`): exige exactamente 1 operando de registro, rechazando llamadas erróneas como `ADD B, A`.
+    * Nemotécnicos sin operandos (`HLT`, `NOP`, etc.): rechaza parámetros sobrantes.
+    * Instrucciones de 2 operandos (`MOV`, `MVI`, `LXI`): exige exactamente 2 operandos válidos y prohíbe `MOV M, M`.
+    * Pares de registros (`INX`, `DCX`, `DAD`, `PUSH`, `POP`, `LDAX`, `STAX`): valida pares admitidos con tolerancia didáctica (`B`/`BC`, `D`/`DE`, `H`/`HL`, `SP`, `PSW`).
+    * Vectores `RST`: valida rango permitido de 0 a 7.
+    * Detección y rechazo de comas colgantes o vacías (`ADD B,`, `MOV , A`).
+  - Suite de pruebas automatizadas `tests/parameter_validation.test.ts` con cobertura del 100%.
+
+### 🐛 Correcciones de Errores (Bug Fixes)
+- **Eliminación de Diálogos Modales `alert()` del Navegador:**
+  - Se sustituyeron todas las ventanas bloqueantes del navegador (`127.0.0.1:... dice`) por notificaciones nativas en la barra de estado del editor, evitando interrupciones molestas en el flujo de trabajo.
+- **Corrección de Apiñamiento de Texto en Barra Superior:**
+  - Se retiró el badge de estado comprimido a la derecha de la barra de herramientas, permitiendo que la insignia de nombre de archivo (`sin_titulo.asm`) se posicione holgadamente a la derecha sin deformaciones verticales.
+- **Cierre Global del Modal de Autocompletado:**
+  - Se añadió un escuchador `pointerdown` global para descartar el menú desplegable al hacer clic en cualquier parte fuera de él (otras ventanas, toolbar o editor).
+- **Autocompletado Consciente de Aridad:**
+  - Se suprimió la sugerencia errónea de registros adicionales cuando la instrucción ya cuenta con sus operandos completos o cuando se introducen comas no válidas.
+
+---
+
 ## [1.2.0] - 2026-10-24
 
 ### ✨ Nuevas Funcionalidades

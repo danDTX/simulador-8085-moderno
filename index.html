@@ -21,6 +21,12 @@
           <div class="menu-dropdown">
             <button id="menu-file-new">Nuevo Programa</button>
             <button id="menu-file-open">Abrir .asm...</button>
+            <div class="menu-submenu-container" id="menu-file-recent-container">
+              <button id="menu-file-recent-trigger" class="menu-submenu-trigger">🕒 Archivos Recientes <span style="font-size: 10px; opacity: 0.7;">▶</span></button>
+              <div class="menu-submenu" id="menu-file-recent-list">
+                <div class="menu-recent-empty" style="padding: 8px 14px; font-size: 11px; color: var(--text-muted);">Sin archivos recientes</div>
+              </div>
+            </div>
             <button id="menu-file-save">Guardar .asm <span>Ctrl+S</span></button>
             <button id="menu-file-save-as">Guardar como...</button>
             <div class="menu-divider"></div>

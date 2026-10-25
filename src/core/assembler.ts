@@ -343,6 +343,10 @@ export class Assembler8085 {
       const rest = code.substring(tokens[0].length).trim();
       let operands: string[] = rest ? rest.split(',').map(s => s.trim()) : [];
 
+      if (rest && operands.some(op => op.length === 0)) {
+        diagnostics.push({ line: lineNum, message: `Operando vacío o coma no válida en '${code}'`, isError: true });
+      }
+
       // 8085sim compatibility: allow numeric register indexes 0..7 (0=B, 1=C, 2=D, 3=E, 4=H, 5=L, 6=M, 7=A)
       const regIndexMap = ['B', 'C', 'D', 'E', 'H', 'L', 'M', 'A'];
       operands = operands.map(op => {
@@ -364,6 +368,9 @@ export class Assembler8085 {
       if (mnemonic === 'DB') {
         isDirective = true;
         directiveType = 'DB';
+        if (operands.length === 0) {
+          diagnostics.push({ line: lineNum, message: "Directiva 'DB' requiere al menos un valor de byte", isError: true });
+        }
         for (const op of operands) {
           if ((op.startsWith('"') && op.endsWith('"')) || (op.startsWith("'") && op.endsWith("'"))) {
             size += Math.max(0, op.length - 2);
@@ -374,37 +381,127 @@ export class Assembler8085 {
       } else if (mnemonic === 'DW') {
         isDirective = true;
         directiveType = 'DW';
+        if (operands.length === 0) {
+          diagnostics.push({ line: lineNum, message: "Directiva 'DW' requiere al menos una palabra de 16 bits", isError: true });
+        }
         size = operands.length * 2;
       } else if (mnemonic === 'DS') {
         isDirective = true;
         directiveType = 'DS';
+        if (operands.length !== 1) {
+          diagnostics.push({ line: lineNum, message: "Directiva 'DS' requiere exactamente 1 tamaño en bytes", isError: true });
+        }
         const count = Assembler8085.parseSingleNumber(operands[0]) || 1;
         size = count;
       } else {
         if (Assembler8085.SIMPLE_OPCODES[mnemonic] !== undefined) {
           size = 1;
+          if (operands.length > 0) {
+            diagnostics.push({ line: lineNum, message: `La instrucción '${mnemonic}' no recibe operandos (recibió ${operands.length}: ${operands.join(', ')})`, isError: true });
+          }
         } else if (mnemonic === 'MOV') {
           size = 1;
+          if (operands.length !== 2) {
+            diagnostics.push({ line: lineNum, message: `La instrucción 'MOV' requiere 2 operandos (MOV Destino, Origen), pero recibió ${operands.length}`, isError: true });
+          } else {
+            const dst = operands[0].toUpperCase();
+            const src = operands[1].toUpperCase();
+            if (dst === 'M' && src === 'M') {
+              diagnostics.push({ line: lineNum, message: `La instrucción 'MOV M, M' no es válida en 8085 (equivale a HLT)`, isError: true });
+            } else if (!Assembler8085.MOV_MAP[dst] || Assembler8085.MOV_MAP[dst][src] === undefined) {
+              diagnostics.push({ line: lineNum, message: `Operandos no válidos para MOV: '${operands[0]}', '${operands[1]}'. Deben ser registros A, B, C, D, E, H, L o M`, isError: true });
+            }
+          }
         } else if (mnemonic === 'MVI') {
           size = 2;
+          if (operands.length !== 2) {
+            diagnostics.push({ line: lineNum, message: `La instrucción 'MVI' requiere 2 operandos (MVI Registro, Dato8), pero recibió ${operands.length}`, isError: true });
+          } else {
+            const reg = operands[0].toUpperCase();
+            if (Assembler8085.MVI_MAP[reg] === undefined) {
+              diagnostics.push({ line: lineNum, message: `Registro no válido para MVI: '${operands[0]}'. Debe ser A, B, C, D, E, H, L o M`, isError: true });
+            }
+          }
         } else if (mnemonic === 'LXI') {
           size = 3;
+          if (operands.length !== 2) {
+            diagnostics.push({ line: lineNum, message: `La instrucción 'LXI' requiere 2 operandos (LXI Par, Dato16), pero recibió ${operands.length}`, isError: true });
+          } else {
+            let pair = operands[0].toUpperCase();
+            if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D'; if (pair === 'HL') pair = 'H';
+            if (Assembler8085.LXI_MAP[pair] === undefined) {
+              diagnostics.push({ line: lineNum, message: `Par de registros no válido para LXI: '${operands[0]}'. Debe ser B (BC), D (DE), H (HL) o SP`, isError: true });
+            }
+          }
         } else if (mnemonic === 'STAX' || mnemonic === 'LDAX') {
           size = 1;
+          if (operands.length !== 1) {
+            diagnostics.push({ line: lineNum, message: `La instrucción '${mnemonic}' requiere 1 par de registros (B o D), pero recibió ${operands.length}`, isError: true });
+          } else {
+            let pair = operands[0].toUpperCase();
+            if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D';
+            if (pair !== 'B' && pair !== 'D') {
+              diagnostics.push({ line: lineNum, message: `Par no válido para ${mnemonic}: '${operands[0]}'. Solo admite B (BC) o D (DE)`, isError: true });
+            }
+          }
         } else if (mnemonic === 'INX' || mnemonic === 'DCX' || mnemonic === 'DAD') {
           size = 1;
+          if (operands.length !== 1) {
+            diagnostics.push({ line: lineNum, message: `La instrucción '${mnemonic}' requiere 1 par de registros (B, D, H o SP), pero recibió ${operands.length}`, isError: true });
+          } else {
+            let pair = operands[0].toUpperCase();
+            if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D'; if (pair === 'HL') pair = 'H';
+            if (Assembler8085.LXI_MAP[pair] === undefined) {
+              diagnostics.push({ line: lineNum, message: `Par no válido para ${mnemonic}: '${operands[0]}'. Debe ser B (BC), D (DE), H (HL) o SP`, isError: true });
+            }
+          }
         } else if (mnemonic === 'INR' || mnemonic === 'DCR') {
           size = 1;
+          if (operands.length !== 1) {
+            diagnostics.push({ line: lineNum, message: `La instrucción '${mnemonic}' requiere 1 registro (A, B, C, D, E, H, L o M), pero recibió ${operands.length}`, isError: true });
+          } else {
+            const reg = operands[0].toUpperCase();
+            if (Assembler8085.INR_MAP[reg] === undefined) {
+              diagnostics.push({ line: lineNum, message: `Registro no válido para ${mnemonic}: '${operands[0]}'. Debe ser A, B, C, D, E, H, L o M`, isError: true });
+            }
+          }
         } else if (Assembler8085.ALU_REG_MAP[mnemonic] !== undefined) {
           size = 1;
+          if (operands.length !== 1) {
+            diagnostics.push({ line: lineNum, message: `La instrucción '${mnemonic}' requiere exactamente 1 registro (ej. ${mnemonic} B), pero recibió ${operands.length}: ${operands.join(', ')}`, isError: true });
+          } else {
+            const reg = operands[0].toUpperCase();
+            if (Assembler8085.ALU_REG_MAP[mnemonic][reg] === undefined) {
+              diagnostics.push({ line: lineNum, message: `Registro no válido para ${mnemonic}: '${operands[0]}'. Debe ser A, B, C, D, E, H, L o M`, isError: true });
+            }
+          }
         } else if (Assembler8085.IMM8_OPCODES[mnemonic] !== undefined) {
           size = 2;
+          if (operands.length !== 1) {
+            const tipo = (mnemonic === 'IN' || mnemonic === 'OUT') ? 'un puerto de 8 bits (ej. 00H)' : 'un dato de 8 bits (ej. 05H)';
+            diagnostics.push({ line: lineNum, message: `La instrucción '${mnemonic}' requiere exactamente ${tipo}, pero recibió ${operands.length}`, isError: true });
+          }
         } else if (Assembler8085.BRANCH_OPCODES[mnemonic] !== undefined) {
           size = 3;
+          if (operands.length !== 1) {
+            diagnostics.push({ line: lineNum, message: `La instrucción '${mnemonic}' requiere exactamente 1 dirección o etiqueta (ej. ${mnemonic} 0200H), pero recibió ${operands.length}`, isError: true });
+          }
         } else if (mnemonic === 'PUSH' || mnemonic === 'POP') {
           size = 1;
+          if (operands.length !== 1) {
+            diagnostics.push({ line: lineNum, message: `La instrucción '${mnemonic}' requiere 1 par de registros (B, D, H o PSW), pero recibió ${operands.length}`, isError: true });
+          } else {
+            let pair = operands[0].toUpperCase();
+            if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D'; if (pair === 'HL') pair = 'H';
+            if (!['B', 'D', 'H', 'PSW'].includes(pair)) {
+              diagnostics.push({ line: lineNum, message: `Par no válido para ${mnemonic}: '${operands[0]}'. Debe ser B (BC), D (DE), H (HL) o PSW`, isError: true });
+            }
+          }
         } else if (mnemonic === 'RST') {
           size = 1;
+          if (operands.length !== 1) {
+            diagnostics.push({ line: lineNum, message: `La instrucción 'RST' requiere 1 número de vector (0 a 7), pero recibió ${operands.length}`, isError: true });
+          }
         } else {
           diagnostics.push({ line: lineNum, message: `Instrucción desconocida: ${mnemonic}`, isError: true });
         }
@@ -509,32 +606,26 @@ export class Assembler8085 {
       if (Assembler8085.SIMPLE_OPCODES[mnemonic] !== undefined) {
         bytes.push(Assembler8085.SIMPLE_OPCODES[mnemonic]);
       } else if (mnemonic === 'MOV') {
-        const dst = ops[0];
-        const src = ops[1];
+        const dst = ops[0] || '';
+        const src = ops[1] || '';
         if (Assembler8085.MOV_MAP[dst] && Assembler8085.MOV_MAP[dst][src] !== undefined) {
           bytes.push(Assembler8085.MOV_MAP[dst][src]);
-        } else {
-          diagnostics.push({ line: inst.lineNum, message: `Operandos no válidos para MOV: ${dst}, ${src}`, isError: true });
         }
       } else if (mnemonic === 'MVI') {
-        const reg = ops[0];
-        const val = resolveValue(inst.operands[1], inst.lineNum) & 0xff;
+        const reg = ops[0] || '';
+        const val = inst.operands.length > 1 ? (resolveValue(inst.operands[1], inst.lineNum) & 0xff) : 0;
         if (Assembler8085.MVI_MAP[reg] !== undefined) {
           bytes.push(Assembler8085.MVI_MAP[reg]);
           bytes.push(val);
-        } else {
-          diagnostics.push({ line: inst.lineNum, message: `Registro no válido para MVI: ${reg}`, isError: true });
         }
       } else if (mnemonic === 'LXI') {
-        let pair = ops[0];
+        let pair = ops[0] || '';
         if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D'; if (pair === 'HL') pair = 'H';
-        const val = resolveValue(inst.operands[1], inst.lineNum);
+        const val = inst.operands.length > 1 ? resolveValue(inst.operands[1], inst.lineNum) : 0;
         if (Assembler8085.LXI_MAP[pair] !== undefined) {
           bytes.push(Assembler8085.LXI_MAP[pair]);
           bytes.push(val & 0xff);
           bytes.push((val >> 8) & 0xff);
-        } else {
-          diagnostics.push({ line: inst.lineNum, message: `Par de registros no válido para LXI: ${pair}`, isError: true });
         }
       } else if (mnemonic === 'STAX') {
         const pair = ops[0] === 'BC' ? 'B' : ops[0] === 'DE' ? 'D' : ops[0];
@@ -543,15 +634,15 @@ export class Assembler8085 {
         const pair = ops[0] === 'BC' ? 'B' : ops[0] === 'DE' ? 'D' : ops[0];
         bytes.push(pair === 'B' ? 0x0A : 0x1A);
       } else if (mnemonic === 'INX') {
-        let pair = ops[0];
+        let pair = ops[0] || '';
         if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D'; if (pair === 'HL') pair = 'H';
         bytes.push(Assembler8085.INX_MAP[pair] || 0x03);
       } else if (mnemonic === 'DCX') {
-        let pair = ops[0];
+        let pair = ops[0] || '';
         if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D'; if (pair === 'HL') pair = 'H';
         bytes.push(Assembler8085.DCX_MAP[pair] || 0x0B);
       } else if (mnemonic === 'DAD') {
-        let pair = ops[0];
+        let pair = ops[0] || '';
         if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D'; if (pair === 'HL') pair = 'H';
         bytes.push(Assembler8085.DAD_MAP[pair] || 0x09);
       } else if (mnemonic === 'INR') {
@@ -562,27 +653,30 @@ export class Assembler8085 {
         bytes.push(Assembler8085.ALU_REG_MAP[mnemonic][ops[0]] || 0x80);
       } else if (Assembler8085.IMM8_OPCODES[mnemonic] !== undefined) {
         const opcode = Assembler8085.IMM8_OPCODES[mnemonic];
-        const val = resolveValue(inst.operands[0], inst.lineNum) & 0xff;
+        const val = inst.operands.length > 0 ? (resolveValue(inst.operands[0], inst.lineNum) & 0xff) : 0;
         bytes.push(opcode);
         bytes.push(val);
       } else if (Assembler8085.BRANCH_OPCODES[mnemonic] !== undefined) {
         const opcode = Assembler8085.BRANCH_OPCODES[mnemonic];
-        const target = resolveValue(inst.operands[0], inst.lineNum);
+        const target = inst.operands.length > 0 ? resolveValue(inst.operands[0], inst.lineNum) : 0;
         bytes.push(opcode);
         bytes.push(target & 0xff);
         bytes.push((target >> 8) & 0xff);
       } else if (mnemonic === 'PUSH') {
-        let pair = ops[0];
+        let pair = ops[0] || '';
         if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D'; if (pair === 'HL') pair = 'H';
         const map: Record<string, number> = { 'B': 0xC5, 'D': 0xD5, 'H': 0xE5, 'PSW': 0xF5 };
         bytes.push(map[pair] || 0xC5);
       } else if (mnemonic === 'POP') {
-        let pair = ops[0];
+        let pair = ops[0] || '';
         if (pair === 'BC') pair = 'B'; if (pair === 'DE') pair = 'D'; if (pair === 'HL') pair = 'H';
         const map: Record<string, number> = { 'B': 0xC1, 'D': 0xD1, 'H': 0xE1, 'PSW': 0xF1 };
         bytes.push(map[pair] || 0xC1);
       } else if (mnemonic === 'RST') {
-        const n = resolveValue(inst.operands[0], inst.lineNum);
+        const n = inst.operands.length > 0 ? resolveValue(inst.operands[0], inst.lineNum) : 0;
+        if (n < 0 || n > 7) {
+          diagnostics.push({ line: inst.lineNum, message: `Vector de RST no válido: ${n}. Debe estar entre 0 y 7`, isError: true });
+        }
         bytes.push(0xC7 | ((n & 7) << 3));
       }
 
