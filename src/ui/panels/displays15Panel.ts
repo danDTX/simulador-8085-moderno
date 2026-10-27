@@ -28,24 +28,28 @@ export function createDisplays15Panel(perifs: PeripheralsManager): Displays15Ins
       const pLowHex = pLow.toString(16).padStart(2, '0').toUpperCase() + 'H';
       const pHighHex = pHigh.toString(16).padStart(2, '0').toUpperCase() + 'H';
 
-      // Low byte segments (identical mapping to 7-segment):
-      const segF = (lowByte & (1 << 0)) !== 0;
-      const segA = (lowByte & (1 << 1)) !== 0;
-      const segB = (lowByte & (1 << 2)) !== 0;
-      const segG1 = (lowByte & (1 << 3)) !== 0;
-      const segE = (lowByte & (1 << 4)) !== 0;
-      const segD = (lowByte & (1 << 5)) !== 0;
-      const segC = (lowByte & (1 << 6)) !== 0;
-      const segDP = (lowByte & (1 << 7)) !== 0;
+      // Byte 1 (Puerto Par: pLow) -> Trazos internos y especiales de 8085sim:
+      const segH = (lowByte & (1 << 0)) !== 0;     // Diagonal Top-Left
+      const segJ = (lowByte & (1 << 1)) !== 0;     // Upper Vertical
+      const segK = (lowByte & (1 << 2)) !== 0;     // Diagonal Top-Right
+      const segG1_b1 = (lowByte & (1 << 3)) !== 0; // Middle-Left
+      const segG2_b1 = (lowByte & (1 << 4)) !== 0; // Middle-Right
+      const segN = (lowByte & (1 << 5)) !== 0;     // Diagonal Bottom-Left
+      const segM = (lowByte & (1 << 6)) !== 0;     // Lower Vertical
+      const segL = (lowByte & (1 << 7)) !== 0;     // Diagonal Bottom-Right
 
-      // High byte segments (inner starburst):
-      const segG2 = (highByte & (1 << 0)) !== 0;
-      const segJ = (highByte & (1 << 1)) !== 0;  // Upper vertical
-      const segH = (highByte & (1 << 2)) !== 0;  // Diagonal top-left
-      const segK = (highByte & (1 << 3)) !== 0;  // Diagonal top-right
-      const segN = (highByte & (1 << 4)) !== 0;  // Diagonal bottom-left
-      const segL = (highByte & (1 << 5)) !== 0;  // Diagonal bottom-right
-      const segM = (highByte & (1 << 6)) !== 0;  // Lower vertical
+      // Byte 2 (Puerto Impar: pHigh) -> Perímetro exterior y punto decimal:
+      const segF = (highByte & (1 << 0)) !== 0;    // Top-Left Vertical
+      const segA = (highByte & (1 << 1)) !== 0;    // Top Horizontal
+      const segB = (highByte & (1 << 2)) !== 0;    // Top-Right Vertical
+      const segG_b2 = (highByte & (1 << 3)) !== 0; // Horizontal Central (activa G1 y G2)
+      const segE = (highByte & (1 << 4)) !== 0;    // Bottom-Left Vertical
+      const segD = (highByte & (1 << 5)) !== 0;    // Bottom Horizontal
+      const segC = (highByte & (1 << 6)) !== 0;    // Bottom-Right Vertical
+      const segDP = (highByte & (1 << 7)) !== 0;   // Decimal Point
+
+      const segG1 = segG1_b1 || segG_b2;
+      const segG2 = segG2_b1 || segG_b2;
 
       digitsHtml += `
         <div class="disp15-digit-box" title="Puertos ${pLowHex} / ${pHighHex}">

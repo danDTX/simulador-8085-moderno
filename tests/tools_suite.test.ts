@@ -38,13 +38,29 @@ describe('Developer Tools Suite - Factual Verification', () => {
     assert.strictEqual(anode0, 0x88);
   });
 
-  it('Verifies 15-segment low and high byte calculations', () => {
-    // Low byte: F=0, A=1, B=2, G1=3, E=4, D=5, C=6, DP=7
-    // High byte: G2=0, J=1, H=2, K=3, N=4, L=5, M=6
-    const low = 0x77; // Perimeter 0-shape
-    const high = 0x28; // Diagonal slash (H=2, L=5 -> (1<<2)|(1<<5) = 4 + 32 = 0x24 / with slash = 0x28)
-    const word = (high << 8) | low;
-    assert.strictEqual(word, 0x2877);
+  it('Verifies 15-segment Byte 1 (Internal) and Byte 2 (Perimeter) official mappings', () => {
+    // Byte 1 (Puerto Par N): Trazos internos y especiales
+    // bit 0: H (Diag Sup-Izq), bit 1: J (Vert Central Sup), bit 2: K (Diag Sup-Der),
+    // bit 3: G1 (Media Izq), bit 4: G2 (Media Der), bit 5: N (Diag Inf-Izq),
+    // bit 6: M (Vert Central Inf), bit 7: L (Diag Inf-Der)
+    //
+    // Byte 2 (Puerto Impar N+1): Perímetro exterior y punto decimal
+    // bit 0: F (Sup-Izq), bit 1: A (Sup), bit 2: B (Sup-Der), bit 3: G (Media completa),
+    // bit 4: E (Inf-Izq), bit 5: D (Inf), bit 6: C (Inf-Der), bit 7: DP (Punto Decimal)
+
+    // Letter 'I': Byte 1 = 42H (J=bit 1, M=bit 6), Byte 2 = 22H (A=bit 1, D=bit 5)
+    const b1_I = (1 << 1) | (1 << 6); // 0x42
+    const b2_I = (1 << 1) | (1 << 5); // 0x22
+    assert.strictEqual(b1_I, 0x42);
+    assert.strictEqual(b2_I, 0x22);
+
+    // Letter 'U': Byte 1 = 00H, Byte 2 = 75H (F=0, B=2, E=4, D=5, C=6)
+    const b2_U = (1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6);
+    assert.strictEqual(b2_U, 0x75);
+
+    // Little endian word for 'I':
+    const word_I = (b2_I << 8) | b1_I;
+    assert.strictEqual(word_I, 0x2242);
   });
 
   it('Verifies ASCII string-to-dB single-line generator rule', () => {

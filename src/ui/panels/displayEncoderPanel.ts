@@ -20,25 +20,32 @@ const D7_MASKS: Record<string, number> = {
   DP: 1 << 7
 };
 
-// 15-segment bit positions:
-// Low Byte:  F=0, A=1, B=2, G1=3, E=4, D=5, C=6, DP=7
-// High Byte: G2=0, J=1, H=2, K=3, N=4, L=5, M=6
-const D15_MASKS: Record<string, { byte: 'low' | 'high'; bit: number }> = {
-  F: { byte: 'low', bit: 0 },
-  A: { byte: 'low', bit: 1 },
-  B: { byte: 'low', bit: 2 },
-  G1: { byte: 'low', bit: 3 },
-  E: { byte: 'low', bit: 4 },
-  D: { byte: 'low', bit: 5 },
-  C: { byte: 'low', bit: 6 },
-  DP: { byte: 'low', bit: 7 },
-  G2: { byte: 'high', bit: 0 },
-  J: { byte: 'high', bit: 1 },
-  H: { byte: 'high', bit: 2 },
-  K: { byte: 'high', bit: 3 },
-  N: { byte: 'high', bit: 4 },
-  L: { byte: 'high', bit: 5 },
-  M: { byte: 'high', bit: 6 }
+// 15-segment bit positions (8085sim Cátedra Oficial):
+// Byte 1 (Puerto Par N): Trazos internos y especiales
+// bit 0: H (Diag Sup-Izq), bit 1: J (Vert Central Sup), bit 2: K (Diag Sup-Der),
+// bit 3: G1 (Media Izq),   bit 4: G2 (Media Der),        bit 5: N (Diag Inf-Izq),
+// bit 6: M (Vert Central Inf), bit 7: L (Diag Inf-Der)
+//
+// Byte 2 (Puerto Impar N+1): Perímetro exterior (7 segmentos) y punto decimal
+// bit 0: F (Sup-Izq), bit 1: A (Sup),     bit 2: B (Sup-Der),   bit 3: G (Media completa),
+// bit 4: E (Inf-Izq), bit 5: D (Inf),     bit 6: C (Inf-Der),   bit 7: DP (Punto Decimal)
+const D15_MASKS: Record<string, { byte: 'b1' | 'b2'; bit: number }> = {
+  H:  { byte: 'b1', bit: 0 },
+  J:  { byte: 'b1', bit: 1 },
+  K:  { byte: 'b1', bit: 2 },
+  G1: { byte: 'b1', bit: 3 },
+  G2: { byte: 'b1', bit: 4 },
+  N:  { byte: 'b1', bit: 5 },
+  M:  { byte: 'b1', bit: 6 },
+  L:  { byte: 'b1', bit: 7 },
+
+  F:  { byte: 'b2', bit: 0 },
+  A:  { byte: 'b2', bit: 1 },
+  B:  { byte: 'b2', bit: 2 },
+  E:  { byte: 'b2', bit: 4 },
+  D:  { byte: 'b2', bit: 5 },
+  C:  { byte: 'b2', bit: 6 },
+  DP: { byte: 'b2', bit: 7 }
 };
 
 // Standard preset characters for 7-segment (Cathode Common 8085sim)
@@ -68,48 +75,46 @@ const D7_PRESETS: { char: string; hex: number; segs: string }[] = [
   { char: '.', hex: 0x80, segs: 'DP' }
 ];
 
-// Standard preset characters for 15-segment (Cathode Common 8085sim)
-const D15_PRESETS: { char: string; low: number; high: number }[] = [
-  { char: '0', low: 0x77, high: 0x28 }, // with diagonal slash
-  { char: '1', low: 0x44, high: 0x00 },
-  { char: '2', low: 0x3e, high: 0x01 },
-  { char: '3', low: 0x6e, high: 0x01 },
-  { char: '4', low: 0x4d, high: 0x01 },
-  { char: '5', low: 0x6b, high: 0x01 },
-  { char: '6', low: 0x7b, high: 0x01 },
-  { char: '7', low: 0x46, high: 0x00 },
-  { char: '8', low: 0x7f, high: 0x01 },
-  { char: '9', low: 0x6f, high: 0x01 },
-  { char: 'A', low: 0x5f, high: 0x01 },
-  { char: 'B', low: 0x66, high: 0x43 },
-  { char: 'C', low: 0x33, high: 0x00 },
-  { char: 'D', low: 0x66, high: 0x42 },
-  { char: 'E', low: 0x3b, high: 0x01 },
-  { char: 'F', low: 0x1b, high: 0x01 },
-  { char: 'G', low: 0x73, high: 0x01 },
-  { char: 'H', low: 0x5d, high: 0x01 },
-  { char: 'I', low: 0x22, high: 0x42 },
-  { char: 'J', low: 0x74, high: 0x00 },
-  { char: 'K', low: 0x11, high: 0x28 },
-  { char: 'L', low: 0x31, high: 0x00 },
-  { char: 'M', low: 0x45, high: 0x0c },
-  { char: 'N', low: 0x45, high: 0x24 },
-  { char: 'O', low: 0x77, high: 0x00 },
-  { char: 'P', low: 0x1f, high: 0x01 },
-  { char: 'Q', low: 0x77, high: 0x20 },
-  { char: 'R', low: 0x1f, high: 0x21 },
-  { char: 'S', low: 0x6b, high: 0x01 },
-  { char: 'T', low: 0x02, high: 0x42 },
-  { char: 'U', low: 0x75, high: 0x00 },
-  { char: 'V', low: 0x11, high: 0x14 },
-  { char: 'W', low: 0x45, high: 0x30 },
-  { char: 'X', low: 0x00, high: 0x3c },
-  { char: 'Y', low: 0x00, high: 0x4a },
-  { char: 'Z', low: 0x22, high: 0x14 },
-  { char: '+', low: 0x08, high: 0x43 },
-  { char: '-', low: 0x08, high: 0x01 },
-  { char: '*', low: 0x08, high: 0x7f },
-  { char: '/', low: 0x00, high: 0x14 }
+// Tabla Oficial de 15 Segmentos de la Cátedra (8085sim):
+// b1 = Byte 1 (Puerto Par N, Trazos Internos), b2 = Byte 2 (Puerto Impar N+1, Perímetro)
+const D15_PRESETS: { char: string; b1: number; b2: number }[] = [
+  { char: '0', b1: 0x24, b2: 0x77 }, // Cero con diagonal técnica
+  { char: '1', b1: 0x00, b2: 0x44 },
+  { char: '2', b1: 0x00, b2: 0x3e },
+  { char: '3', b1: 0x00, b2: 0x6e },
+  { char: '4', b1: 0x00, b2: 0x4d },
+  { char: '5', b1: 0x00, b2: 0x6b },
+  { char: '6', b1: 0x00, b2: 0x7b },
+  { char: '7', b1: 0x00, b2: 0x46 },
+  { char: '8', b1: 0x00, b2: 0x77 },
+  { char: '9', b1: 0x00, b2: 0x4f },
+  { char: 'A', b1: 0x00, b2: 0x5f },
+  { char: 'B', b1: 0x52, b2: 0x66 },
+  { char: 'C', b1: 0x00, b2: 0x33 },
+  { char: 'D', b1: 0x42, b2: 0x66 },
+  { char: 'E', b1: 0x00, b2: 0x3b },
+  { char: 'F', b1: 0x00, b2: 0x1b },
+  { char: 'G', b1: 0x10, b2: 0x73 },
+  { char: 'H', b1: 0x00, b2: 0x5d },
+  { char: 'I', b1: 0x42, b2: 0x22 },
+  { char: 'J', b1: 0x00, b2: 0x74 },
+  { char: 'K', b1: 0xc6, b2: 0x00 },
+  { char: 'L', b1: 0x00, b2: 0x31 },
+  { char: 'M', b1: 0x05, b2: 0x55 },
+  { char: 'N', b1: 0x81, b2: 0x55 },
+  { char: 'Ñ', b1: 0x81, b2: 0x57 },
+  { char: 'O', b1: 0x00, b2: 0x77 },
+  { char: 'P', b1: 0x00, b2: 0x1f },
+  { char: 'Q', b1: 0x80, b2: 0x77 },
+  { char: 'R', b1: 0x80, b2: 0x1f },
+  { char: 'S', b1: 0x18, b2: 0x63 },
+  { char: 'T', b1: 0x42, b2: 0x02 },
+  { char: 'U', b1: 0x00, b2: 0x75 },
+  { char: 'V', b1: 0x24, b2: 0x11 },
+  { char: 'W', b1: 0xa0, b2: 0x55 },
+  { char: 'X', b1: 0xa5, b2: 0x00 },
+  { char: 'Y', b1: 0x45, b2: 0x00 },
+  { char: 'Z', b1: 0x24, b2: 0x22 }
 ];
 
 export function createDisplayEncoderPanel(options: DisplayEncoderOptions = {}): DisplayEncoderInstance {
@@ -236,20 +241,20 @@ export function createDisplayEncoderPanel(options: DisplayEncoderOptions = {}): 
     return isAnode ? (~raw & 0xff) : raw;
   };
 
-  const calculate15Value = (): { low: number; high: number; word: number } => {
-    let rawLow = 0;
-    let rawHigh = 0;
+  const calculate15Value = (): { b1: number; b2: number; word: number } => {
+    let rawB1 = 0;
+    let rawB2 = 0;
     for (const [seg, on] of Object.entries(state15)) {
       if (on && D15_MASKS[seg]) {
         const info = D15_MASKS[seg];
-        if (info.byte === 'low') rawLow |= (1 << info.bit);
-        else rawHigh |= (1 << info.bit);
+        if (info.byte === 'b1') rawB1 |= (1 << info.bit);
+        else rawB2 |= (1 << info.bit);
       }
     }
-    const finalLow = isAnode ? (~rawLow & 0xff) : rawLow;
-    const finalHigh = isAnode ? (~rawHigh & 0xff) : rawHigh;
-    const word = (finalHigh << 8) | finalLow;
-    return { low: finalLow, high: finalHigh, word };
+    const finalB1 = isAnode ? (~rawB1 & 0xff) : rawB1;
+    const finalB2 = isAnode ? (~rawB2 & 0xff) : rawB2;
+    const word = (finalB2 << 8) | finalB1;
+    return { b1: finalB1, b2: finalB2, word };
   };
 
   // Render SVG Display
@@ -374,13 +379,13 @@ export function createDisplayEncoderPanel(options: DisplayEncoderOptions = {}): 
         const btn = document.createElement('button');
         btn.className = 'tb-btn';
         btn.style.cssText = 'padding: 4px 8px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;';
-        const lowHex = item.low.toString(16).padStart(2, '0').toUpperCase();
-        const highHex = item.high.toString(16).padStart(2, '0').toUpperCase();
-        btn.innerHTML = `<span style="font-weight: bold; color: #79c0ff; font-size: 13px;">${item.char}</span> <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 10px;">${highHex}${lowHex}H</span>`;
-        btn.title = `Cargar '${item.char}' en el display de 15 segmentos`;
+        const b1Hex = item.b1.toString(16).padStart(2, '0').toUpperCase();
+        const b2Hex = item.b2.toString(16).padStart(2, '0').toUpperCase();
+        btn.innerHTML = `<span style="font-weight: bold; color: #79c0ff; font-size: 13px;">${item.char}</span> <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 10px;">${b1Hex}, ${b2Hex}H</span>`;
+        btn.title = `Cargar '${item.char}' (Byte 1: ${b1Hex}H, Byte 2: ${b2Hex}H)`;
         btn.addEventListener('click', () => {
           for (const [seg, info] of Object.entries(D15_MASKS)) {
-            const byteVal = info.byte === 'low' ? item.low : item.high;
+            const byteVal = info.byte === 'b1' ? item.b1 : item.b2;
             state15[seg] = (byteVal & (1 << info.bit)) !== 0;
           }
           update();
@@ -410,22 +415,23 @@ export function createDisplayEncoderPanel(options: DisplayEncoderOptions = {}): 
       insertMviBtn.textContent = `✍️ Insertar MVI A, ${hex}`;
     } else {
       details15.style.display = 'block';
-      const { low, high, word } = calculate15Value();
-      const lowHex = low.toString(16).padStart(2, '0').toUpperCase() + 'H';
-      const highHex = high.toString(16).padStart(2, '0').toUpperCase() + 'H';
+      const { b1, b2, word } = calculate15Value();
+      const b1Hex = b1.toString(16).padStart(2, '0').toUpperCase() + 'H';
+      const b2Hex = b2.toString(16).padStart(2, '0').toUpperCase() + 'H';
       const wordHex = word.toString(16).padStart(4, '0').toUpperCase() + 'H';
-      const binStr = word.toString(2).padStart(16, '0') + 'B';
+      const binB1 = b1.toString(2).padStart(8, '0');
+      const binB2 = b2.toString(2).padStart(8, '0');
 
-      outHex.textContent = wordHex;
-      outBin.textContent = binStr;
-      out15Bytes.textContent = `Puerto N (Bajo): ${lowHex} | Puerto N+1 (Alto): ${highHex}`;
+      outHex.textContent = `${b1Hex}, ${b2Hex}`;
+      outBin.textContent = `B1:${binB1} B2:${binB2}`;
+      out15Bytes.textContent = `Puerto N (Byte 1, Interno): ${b1Hex} | Puerto N+1 (Byte 2, Perímetro): ${b2Hex}`;
 
       const activeSegs = Object.entries(state15).filter(([, on]) => on).map(([s]) => s);
       outSegs.textContent = activeSegs.length > 0 ? activeSegs.join(', ') : '(Ninguno)';
 
-      copyHexBtn.textContent = `📋 Copiar ${wordHex}`;
-      insertDbBtn.textContent = `📦 Insertar dW ${wordHex}`;
-      insertMviBtn.textContent = `✍️ Insertar LXI H, ${wordHex}`;
+      copyHexBtn.textContent = `📋 Copiar ${b1Hex}, ${b2Hex}`;
+      insertDbBtn.textContent = `📦 Insertar dB ${b1Hex}, ${b2Hex}`;
+      insertMviBtn.textContent = `✍️ Insertar Código MVI`;
     }
   };
 
@@ -483,10 +489,11 @@ export function createDisplayEncoderPanel(options: DisplayEncoderOptions = {}): 
     if (currentMode === '7') {
       snippet = `dB ${outHex.textContent}`;
     } else {
-      const { low, high, word } = calculate15Value();
-      const lowHex = low.toString(16).padStart(2, '0').toUpperCase() + 'H';
-      const highHex = high.toString(16).padStart(2, '0').toUpperCase() + 'H';
-      snippet = `dB ${lowHex}, ${highHex} ; o dW ${word.toString(16).padStart(4, '0').toUpperCase()}H`;
+      const { b1, b2, word } = calculate15Value();
+      const b1Hex = b1.toString(16).padStart(2, '0').toUpperCase() + 'H';
+      const b2Hex = b2.toString(16).padStart(2, '0').toUpperCase() + 'H';
+      const wordHex = word.toString(16).padStart(4, '0').toUpperCase() + 'H';
+      snippet = `dB ${b1Hex}, ${b2Hex} ; o dW ${wordHex}`;
     }
     if (options.onInsertCode) options.onInsertCode(snippet);
     else navigator.clipboard.writeText(snippet);
@@ -498,10 +505,10 @@ export function createDisplayEncoderPanel(options: DisplayEncoderOptions = {}): 
       const hex = calculate7Value().toString(16).padStart(2, '0').toUpperCase() + 'H';
       snippet = `MVI A, ${hex}\nOUT 00H ; Mostrar en display 7 seg`;
     } else {
-      const { low, high } = calculate15Value();
-      const lowHex = low.toString(16).padStart(2, '0').toUpperCase() + 'H';
-      const highHex = high.toString(16).padStart(2, '0').toUpperCase() + 'H';
-      snippet = `MVI A, ${lowHex}\nOUT 00H ; Parte baja (segmentos perimetrales)\nMVI A, ${highHex}\nOUT 01H ; Parte alta (estrella interna)`;
+      const { b1, b2 } = calculate15Value();
+      const b1Hex = b1.toString(16).padStart(2, '0').toUpperCase() + 'H';
+      const b2Hex = b2.toString(16).padStart(2, '0').toUpperCase() + 'H';
+      snippet = `MVI A, ${b1Hex}\nOUT 00H ; Puerto N (Byte 1: Trazos internos)\nMVI A, ${b2Hex}\nOUT 01H ; Puerto N+1 (Byte 2: Perímetro exterior)`;
     }
     if (options.onInsertCode) options.onInsertCode(snippet);
     else navigator.clipboard.writeText(snippet);
