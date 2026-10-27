@@ -12,8 +12,28 @@ export function createDisplays7Panel(perifs: PeripheralsManager): Displays7Insta
 
   let basePort = 0x00;
   const numDigits = 8;
+  const lastPortsState = new Uint8Array(256);
+  let lastBasePort = -1;
 
-  const render = () => {
+  const render = (force: boolean = false) => {
+    let changed = force || (basePort !== lastBasePort);
+    if (!changed) {
+      for (let i = 0; i < numDigits; i++) {
+        const p = (basePort + i) & 0xff;
+        if (perifs.state.portsOut[p] !== lastPortsState[p]) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed) return;
+
+    lastBasePort = basePort;
+    for (let i = 0; i < numDigits; i++) {
+      const p = (basePort + i) & 0xff;
+      lastPortsState[p] = perifs.state.portsOut[p];
+    }
+
     const endPort = (basePort + numDigits - 1) & 0xff;
     const baseHex = basePort.toString(16).padStart(2, '0').toUpperCase() + 'H';
     const endHex = endPort.toString(16).padStart(2, '0').toUpperCase() + 'H';
@@ -100,14 +120,14 @@ export function createDisplays7Panel(perifs: PeripheralsManager): Displays7Insta
       if (!isNaN(parsed) && parsed >= 0 && parsed <= 248) {
         basePort = parsed;
       }
-      render();
+      render(true);
     };
 
     inputPort?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         applyChange();
       } else if (e.key === 'Escape') {
-        render();
+        render(true);
       }
     });
     inputPort?.addEventListener('blur', applyChange);
@@ -116,17 +136,17 @@ export function createDisplays7Panel(perifs: PeripheralsManager): Displays7Insta
       btn.addEventListener('click', () => {
         const b = parseInt(btn.getAttribute('data-base') || '0', 10);
         basePort = b;
-        render();
+        render(true);
       });
     });
   };
 
   const unsub = perifs.subscribe(() => render());
-  render();
+  render(true);
 
   return {
     element: panel,
-    update: render,
+    update: () => render(true),
     destroy: () => unsub()
   };
 }

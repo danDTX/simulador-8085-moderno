@@ -213,7 +213,6 @@ export function createCrtTerminalPanel(cpu: Intel8085, perifs: PeripheralsManage
   });
 
   const unsubTerminal = perifs.subscribeTerminal(() => render());
-  const unsubPerifs = perifs.subscribe(() => render());
 
   render();
 
@@ -222,7 +221,6 @@ export function createCrtTerminalPanel(cpu: Intel8085, perifs: PeripheralsManage
     update: render,
     destroy: () => {
       unsubTerminal();
-      unsubPerifs();
     }
   };
 }

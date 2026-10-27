@@ -76,6 +76,8 @@ export class PeripheralsManager {
 
   private listeners: Set<(state: PeripheralsState) => void> = new Set();
   private terminalListeners: Set<() => void> = new Set();
+  private notifyScheduled = false;
+  private terminalNotifyScheduled = false;
 
   constructor(private cpu: Intel8085) {
     this.attachToCpu();
@@ -91,7 +93,20 @@ export class PeripheralsManager {
     return () => this.terminalListeners.delete(listener);
   }
 
-  public notifyTerminal(): void {
+  public notifyTerminal(immediate: boolean = false): void {
+    if (immediate || typeof requestAnimationFrame === 'undefined') {
+      this.dispatchNotifyTerminal();
+      return;
+    }
+    if (this.terminalNotifyScheduled) return;
+    this.terminalNotifyScheduled = true;
+    requestAnimationFrame(() => {
+      this.terminalNotifyScheduled = false;
+      this.dispatchNotifyTerminal();
+    });
+  }
+
+  private dispatchNotifyTerminal(): void {
     for (const l of this.terminalListeners) {
       try { l(); } catch (e) { console.error(e); }
     }
@@ -282,11 +297,24 @@ export class PeripheralsManager {
     this.state.displays15 = [0, 0, 0, 0, 0, 0, 0, 0];
     this.state.currentKeyPressed = 0x00;
     this.state.currentKeyLabel = 'NULL';
-    this.notify();
-    this.notifyTerminal();
+    this.notify(true);
+    this.notifyTerminal(true);
   }
 
-  public notify(): void {
+  public notify(immediate: boolean = false): void {
+    if (immediate || typeof requestAnimationFrame === 'undefined') {
+      this.dispatchNotify();
+      return;
+    }
+    if (this.notifyScheduled) return;
+    this.notifyScheduled = true;
+    requestAnimationFrame(() => {
+      this.notifyScheduled = false;
+      this.dispatchNotify();
+    });
+  }
+
+  private dispatchNotify(): void {
     for (const listener of this.listeners) {
       try { listener(this.state); } catch (e) { console.error(e); }
     }

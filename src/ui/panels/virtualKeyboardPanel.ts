@@ -178,12 +178,22 @@ export function createVirtualKeyboardPanel(perifs: PeripheralsManager): VirtualK
     btn.addEventListener('pointerleave', handleRelease);
   });
 
-  const render = () => {
+  let lastKeyLabel = '';
+  let lastKeyPressed = -1;
+
+  const render = (force: boolean = false) => {
     const label = perifs.state.currentKeyLabel;
+    const pressed = perifs.state.currentKeyPressed;
+    if (!force && label === lastKeyLabel && pressed === lastKeyPressed) {
+      return;
+    }
+    lastKeyLabel = label;
+    lastKeyPressed = pressed;
+
     displayKey.textContent = label;
     panel.querySelectorAll('.vk-key-pressed').forEach(b => b.classList.remove('vk-key-pressed'));
 
-    if (label !== 'NULL' && perifs.state.currentKeyPressed !== 0) {
+    if (label !== 'NULL' && pressed !== 0) {
       displayKey.classList.add('key-active');
       const matchingBtn = panel.querySelector(`.vk-key[data-key="${label.toUpperCase()}"]`) ||
                           panel.querySelector(`.vk-key[data-key="${label}"]`);
@@ -193,12 +203,12 @@ export function createVirtualKeyboardPanel(perifs: PeripheralsManager): VirtualK
     }
   };
 
-  const unsub = perifs.subscribe(render);
-  render();
+  const unsub = perifs.subscribe(() => render());
+  render(true);
 
   return {
     element: panel,
-    update: render,
+    update: () => render(true),
     destroy: () => {
       unsub();
     }

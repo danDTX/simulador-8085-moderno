@@ -12,8 +12,30 @@ export function createLedsPanel(perifs: PeripheralsManager): LedsInstance {
 
   let basePort = 0x00;
   let numPorts = 8;
+  const lastPortsState = new Uint8Array(256);
+  let lastBasePort = -1;
+  let lastNumPorts = -1;
 
-  const render = () => {
+  const render = (force: boolean = false) => {
+    let changed = force || (basePort !== lastBasePort) || (numPorts !== lastNumPorts);
+    if (!changed) {
+      for (let i = 0; i < numPorts; i++) {
+        const p = (basePort + i) & 0xff;
+        if (perifs.state.portsOut[p] !== lastPortsState[p]) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed) return;
+
+    lastBasePort = basePort;
+    lastNumPorts = numPorts;
+    for (let i = 0; i < numPorts; i++) {
+      const p = (basePort + i) & 0xff;
+      lastPortsState[p] = perifs.state.portsOut[p];
+    }
+
     const endPort = (basePort + numPorts - 1) & 0xff;
     const baseHex = basePort.toString(16).padStart(2, '0').toUpperCase() + 'H';
     const endHex = endPort.toString(16).padStart(2, '0').toUpperCase() + 'H';
@@ -79,14 +101,14 @@ export function createLedsPanel(perifs: PeripheralsManager): LedsInstance {
       if (!isNaN(parsed) && parsed >= 0 && parsed <= 255) {
         basePort = parsed;
       }
-      render();
+      render(true);
     };
 
     inputPort?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         applyChange();
       } else if (e.key === 'Escape') {
-        render();
+        render(true);
       }
     });
     inputPort?.addEventListener('blur', applyChange);
@@ -96,17 +118,17 @@ export function createLedsPanel(perifs: PeripheralsManager): LedsInstance {
       const val = parseInt(numInput.value, 10);
       if (val >= 1 && val <= 16) {
         numPorts = val;
-        render();
+        render(true);
       }
     });
   };
 
   const unsub = perifs.subscribe(() => render());
-  render();
+  render(true);
 
   return {
     element: panel,
-    update: render,
+    update: () => render(true),
     destroy: () => unsub()
   };
 }
