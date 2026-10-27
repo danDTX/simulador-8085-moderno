@@ -17,6 +17,9 @@ import { openInterruptsDialog } from './ui/panels/interruptsDialog.js';
 import { createDisassemblerPanel, DisassemblerPanel } from './ui/panels/disassemblerPanel.js';
 import { createStackVisualizerPanel, StackVisualizerPanel } from './ui/panels/stackVisualizerPanel.js';
 import { createDelayGeneratorDialog } from './ui/dialogs/delayGeneratorDialog.js';
+import { createProgrammerCalcPanel } from './ui/panels/programmerCalcPanel.js';
+import { createDisplayEncoderPanel } from './ui/panels/displayEncoderPanel.js';
+import { createAsciiTablePanel } from './ui/panels/asciiTablePanel.js';
 import { createFlowchartPanel, FlowchartPanel } from './ui/panels/flowchartPanel.js';
 import { createInstructionsPanel, InstructionsPanelInstance } from './ui/panels/instructionsPanel.js';
 import { AssemblyResult } from './core/types.js';
@@ -878,6 +881,93 @@ class SimulatorApp {
     this.winManager.bringToFront('delay-gen-view');
   }
 
+  public openProgrammerCalcWindow(): void {
+    if (this.winManager.getWindow('calc-view')) {
+      this.winManager.bringToFront('calc-view');
+      return;
+    }
+
+    const panel = createProgrammerCalcPanel({
+      onInsertCode: (code) => {
+        this.editor.insertAtCursor(code);
+        this.winManager.bringToFront('editor');
+        this.editor.setStatus('✍️ Código insertado desde la Calculadora de Programador');
+      }
+    });
+
+    this.winManager.createWindow({
+      id: 'calc-view',
+      title: 'Calculadora de Programador (Hex / Dec / Bin / Oct)',
+      icon: '🧮',
+      x: 210,
+      y: 70,
+      width: 580,
+      height: 530,
+      minWidth: 420,
+      minHeight: 380,
+      content: panel.element
+    });
+    this.winManager.bringToFront('calc-view');
+  }
+
+  public openDisplayEncoderWindow(): void {
+    if (this.winManager.getWindow('display-encoder-view')) {
+      this.winManager.bringToFront('display-encoder-view');
+      return;
+    }
+
+    const panel = createDisplayEncoderPanel({
+      onInsertCode: (code) => {
+        this.editor.insertAtCursor(code);
+        this.winManager.bringToFront('editor');
+        this.editor.setStatus('✍️ Código insertado desde el Codificador de Displays');
+      }
+    });
+
+    this.winManager.createWindow({
+      id: 'display-encoder-view',
+      title: 'Codificador y Tablas de Displays (7 y 15 Segmentos)',
+      icon: '🔢',
+      x: 230,
+      y: 80,
+      width: 680,
+      height: 560,
+      minWidth: 480,
+      minHeight: 400,
+      content: panel.element
+    });
+    this.winManager.bringToFront('display-encoder-view');
+  }
+
+  public openAsciiTableWindow(): void {
+    if (this.winManager.getWindow('ascii-table-view')) {
+      this.winManager.bringToFront('ascii-table-view');
+      return;
+    }
+
+    const panel = createAsciiTablePanel({
+      onInsertCode: (code) => {
+        this.editor.insertAtCursor(code);
+        this.winManager.bringToFront('editor');
+        this.editor.setStatus('✍️ Código insertado desde la Tabla ASCII');
+      }
+    });
+
+    this.winManager.createWindow({
+      id: 'ascii-table-view',
+      title: 'Tabla de Caracteres ASCII y Generador de Cadenas (dB)',
+      icon: '🔤',
+      x: 250,
+      y: 90,
+      width: 720,
+      height: 560,
+      minWidth: 500,
+      minHeight: 380,
+      content: panel.element
+    });
+    this.winManager.bringToFront('ascii-table-view');
+  }
+
   public openFlowchartWindow(): void {
     this.flowchartPanelInstance = createFlowchartPanel(this.editor.getValue());
     this.winManager.createWindow({
@@ -1057,6 +1147,23 @@ class SimulatorApp {
 
     document.getElementById('menu-dev-keypad')?.addEventListener('click', () => {
       this.openKeyboardWindow();
+    });
+
+    // Tools Menu - Programmer Calculator, Display Encoder, ASCII Table & Delay Gen
+    document.getElementById('menu-tool-calc')?.addEventListener('click', () => {
+      this.openProgrammerCalcWindow();
+    });
+
+    document.getElementById('menu-tool-display-enc')?.addEventListener('click', () => {
+      this.openDisplayEncoderWindow();
+    });
+
+    document.getElementById('menu-tool-ascii')?.addEventListener('click', () => {
+      this.openAsciiTableWindow();
+    });
+
+    document.getElementById('menu-tool-delay-gen')?.addEventListener('click', () => {
+      this.openDelayGeneratorWindow();
     });
 
     // Options - Instructions Dictionary, Delay Generator & Auto Interrupts

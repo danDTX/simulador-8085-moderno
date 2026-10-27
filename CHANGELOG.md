@@ -4,6 +4,40 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.5.0] - 2026-10-26
+
+### ✨ Nuevas Funcionalidades
+- **Nuevo Menú Superior `Herramientas` (Tools Suite):**
+  - Incorporación de un menú dedicado en la barra superior que centraliza 4 utilidades de desarrollo en ventanas MDI flotantes independientes:
+    1. `🧮 Calculadora de Programador (Hex/Dec/Bin)...`
+    2. `🔢 Codificador de Displays (7 y 15 Seg)...`
+    3. `🔤 Tabla y Conversor ASCII...`
+    4. `⏱️ Calculador de Retardos ASM...`
+- **🧮 Calculadora de Programador (`src/ui/panels/programmerCalcPanel.ts`):**
+  - Modos de trabajo seleccionables de **8 bits (Byte)** y **16 bits (Palabra)**.
+  - Sincronización bidireccional instantánea al escribir entre: `HEX (H)`, `DEC (Sin signo)`, `DEC (Con signo / C2)` y `BIN (B)`.
+  - Matriz interactiva de bits (0..7 o 0..15) para alternar bits individuales con un clic.
+  - Operaciones unarias directas: `NOT (CMA)`, `NEG (-X / Compl. a 2)`, `SHL (<<)`, `SHR (>>)`, `ROL (RLC)`, `ROR (RRC)`, `+1 (INR)`, `-1 (DCR)`.
+  - Operaciones binarias con acumulador: `AND`, `OR`, `XOR`, `+`, `-`.
+  - Botones de inserción directa de código en el cursor del Editor ASM (`MVI A, XXH` o `LXI H, XXXXH`, y directivas `dB XXH` o `dW XXXXH`).
+- **🔢 Codificador Visual y Tablas de Displays (`src/ui/panels/displayEncoderPanel.ts`):**
+  - Simulación gráfica SVG interactiva para **Displays de 7 Segmentos** y **Displays de 15 Segmentos (Alfanuméricos)**.
+  - Clic directo sobre cualquier segmento para encenderlo/apagarlo con efecto LED rojo.
+  - Mapeo de bits 100% fiel al hardware de `8085sim`:
+    * 7 Segmentos: `bit 0: F, bit 1: A, bit 2: B, bit 3: G, bit 4: E, bit 5: D, bit 6: C, bit 7: DP` (generando `0=77H, 1=44H...`).
+    * 15 Segmentos: Desglose en byte bajo (puerto $N$) y byte alto (puerto $N+1$).
+  - Selector de polaridad: **Cátodo Común** (1 = ON, estándar cátedra) y **Ánodo Común** (0 = ON, invertido para laboratorio con hardware real).
+  - Catálogo rápido de caracteres alfanuméricos predefinidos (0-9, A-Z, símbolos) que con un clic cargan el patrón en el display.
+  - Inserción directa de directivas `dB XXH` / `dW XXXXH` o rutinas `MVI A, XXH \n OUT 00H`.
+- **🔤 Tabla y Conversor ASCII (`src/ui/panels/asciiTablePanel.ts`):**
+  - Generador de Cadenas de Texto ("String a `dB`"): convierte texto ingresado en una directiva compacta en un solo renglón, con opciones para incluir terminador NUL (`00H`), retorno CR+LF (`0DH, 0AH`) y representación en Hex o caracteres legibles.
+  - Tabla de consulta completa (00H a 7FH) con buscador dinámico por código Hex, Dec, glifo o función de control (`NUL`, `LF`, `CR`, `ESC`, etc.).
+  - Botones por fila para insertar `MVI A, XXH ; 'Char'` en el editor.
+- **Suite de Pruebas Factuales (`tests/tools_suite.test.ts`):**
+  - 4 pruebas automatizadas que verifican la matemática de complemento a 2, rotaciones, pinout de 7 y 15 segmentos, y directivas `dB` en un solo renglón.
+
+---
+
 ## [1.4.0] - 2026-10-24
 
 ### ✨ Nuevas Funcionalidades

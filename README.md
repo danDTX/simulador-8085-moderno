@@ -1,4 +1,4 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.4.0)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.5.0)
 
 Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 
@@ -35,6 +35,13 @@ Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del 
     - `Ctrl + S`: Guardar archivo `.asm`.
     - `Alt + Z`: Alternar ajuste de línea (*Word Wrap*).
     - `Alt + F4`: Salir de la aplicación con confirmación de seguridad.
+
+- **Suite de Herramientas de Desarrollo (v1.5.0):**
+  - **Nuevo Menú Superior `Herramientas`:** Acceso centralizado a utilidades especializadas para el alumno y programador.
+  - **🧮 Calculadora de Programador:** Conversión simultánea en tiempo real (`HEX`, `DEC sin signo`, `DEC con signo / C2`, `BIN`), matriz de bits interactiva de 8/16 bits y operaciones lógicas/aritméticas (`NOT`, `NEG`, `ROL`, `ROR`, `SHL`, `SHR`, `AND`, `OR`, `XOR`).
+  - **🔢 Codificador y Tablas de Displays (7 y 15 Segmentos):** Display SVG interactivo con segmentos clicables LED rojo, fidelidad absoluta al mapeo de `8085sim`, polaridad seleccionable (Cátodo Común / Ánodo Común), desglose de byte bajo/alto en 15 seg, catálogo de caracteres alfanuméricos y generador de directivas `dB` / `dW`.
+  - **🔤 Tabla y Conversor ASCII:** Tabla de consulta rápida con buscador instantáneo (00H-7FH) y conversor "String a `dB`" en un solo renglón con terminadores configurables (`00H` NUL, `0DH, 0AH` CR+LF).
+  - **⏱️ Calculador de Retardos ASM:** Asistente matemático para cálculo de ciclos T y generación de subrutinas de retardo anidadas.
 
 - **Núcleo de CPU Intel 8085:**
   - Emulación exacta de los 246 códigos de operación oficiales.

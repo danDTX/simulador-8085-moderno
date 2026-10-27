@@ -18,6 +18,9 @@
 
   --font-mono: 'Consolas', 'Fira Code', 'Courier New', monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+
+  --bg-card: #1c2128;
+  --bg-input: #0d1117;
 }
 
 body.light-theme {
@@ -30,6 +33,9 @@ body.light-theme {
   --accent: #0969da;
   --accent-hover: #218bff;
   --accent-active: #0550ae;
+
+  --bg-card: #f6f8fa;
+  --bg-input: #ffffff;
 }
 
 * {
@@ -3023,5 +3029,43 @@ html, body {
   color: #24292f !important;
   border-color: #d0d7de !important;
 }
+
+/* ==========================================================================
+   DEVELOPER TOOLS SUITE (Calc, Display Encoder, ASCII Table)
+   ========================================================================== */
+.programmer-calc-container input:focus,
+.display-encoder-container input:focus,
+.ascii-table-container input:focus,
+.ascii-table-container select:focus,
+.display-encoder-container select:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+.calc-bit-toggle:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+
+.calc-op-unary:hover,
+.calc-op-binary:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.light-theme #disp-interactive-host {
+  background: #161b22;
+  border-radius: 6px;
+}
+
+.light-theme .calc-bit-toggle[data-bit] {
+  border-color: #d0d7de;
+}
+
+.light-theme #ascii-generated-db {
+  color: #0969da !important;
+}
+
 
 
