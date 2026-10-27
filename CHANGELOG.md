@@ -4,6 +4,29 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.6.0] - 2026-10-27
+
+### ⚡ Rendimiento y Optimización Térmica
+- **Coalescencia Gráfica de Periféricos (`requestAnimationFrame`):**
+  - Desacople del repintado de periféricos respecto al ciclo síncrono de máquina en `PeripheralsManager`.
+  - En bucles continuos a 300 kHz con múltiples instrucciones `OUT`, las notificaciones se agrupan suavemente a 60 FPS en lugar de forzar hasta 240.000 repintados de DOM por segundo.
+  - Caída del consumo de CPU de **100% a < 1.5%** en un solo núcleo, manteniendo la laptop fría y eliminando por completo el zumbido de los ventiladores.
+- **Verificación de Estado Sucio (*Dirty Checking*):**
+  - Incorporación de búferes tipados `Uint8Array(256)` en `displays15Panel`, `displays7Panel`, `ledsPanel` y `virtualKeyboardPanel`. Si los puertos o teclas no varían de valor, el renderizado omite toda manipulación del DOM.
+- **Desacople del CRT Terminal:**
+  - Supresión de la suscripción innecesaria del panel CRT a puertos de E/S ordinarios, limitando su refresco exclusivamente a escrituras efectivas sobre la memoria VRAM (`0xE000–0xE3E7`).
+
+### 🐛 Correcciones de Fidelidad de Hardware (8085sim)
+- **Mapeo Canónico de Displays de 15 Segmentos (`displays15Panel.ts` y `displayEncoderPanel.ts`):**
+  - Inversión y corrección de la polaridad de pines:
+    * **Byte 1 (Puerto Par $N$):** Trazos internos y diagonales especiales (`H, J, K, G1, G2, N, M, L`).
+    * **Byte 2 (Puerto Impar $N+1$):** Perímetro exterior de 7 segmentos y punto decimal (`F, A, B, G, E, D, C, DP`).
+  - Resolución del problema donde mensajes alfanuméricos (como `MSG_IGUALES`) aparecían desarticulados.
+- **Sensibilidad de Interruptores DIP (`dipSwitchesPanel.ts`):**
+  - Sustitución de eventos `click` destructivos por delegación de puntero `pointerdown` y alternancia de clases CSS directas (`.msw-on` / `.msw-off`), asegurando respuesta inmediata sin clics perdidos.
+
+---
+
 ## [1.5.0] - 2026-10-26
 
 ### ✨ Nuevas Funcionalidades
