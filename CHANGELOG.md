@@ -4,6 +4,21 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.6.1] - 2026-10-28
+
+### 🐛 Correcciones de Errores y Confiabilidad (Bug Fixes)
+- **Selector de Archivos Nativo en Primer Plano (`src/main.ts`):**
+  - Corrección del fallo donde `Neutralino.os.showOpenDialog` abría la ventana de búsqueda en segundo plano (detrás de la ventana del simulador en Windows), congelando la interacción del usuario.
+  - Migración a selector directo de WebView2 anclado a la ventana activa (`<input type="file">`), garantizando apertura visible al frente e inmediata.
+- **Soporte de Arrastrar y Soltar (*Drag & Drop*):**
+  - Posibilidad de arrastrar cualquier archivo ensamblador (`.asm`, `.s`, `.txt`) directamente desde el Explorador de Windows sobre el simulador para cargarlo en una nueva pestaña.
+- **Cierre Inmediato sin Bloqueos de Proceso (`exitProcessOnClose: true`):**
+  - Activación de `"exitProcessOnClose": true` en `neutralino.config.json` y blindaje con bloques de escape `try/catch` en `exitApp()`.
+  - El botón `[X]` de la barra de título cierra el proceso de forma instantánea sin dejar procesos huérfanos ni requerir el Administrador de Tareas.
+  - La persistencia en disco (`sim8085_config.json`) preserva todas las pestañas y código en tiempo real.
+
+---
+
 ## [1.6.0] - 2026-10-27
 
 ### ⚡ Rendimiento y Optimización Térmica

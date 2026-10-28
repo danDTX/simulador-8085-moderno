@@ -1,6 +1,6 @@
 {
   "name": "simulador-8085-moderno",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Simulador Moderno del Microprocesador Intel 8085 con MDI, Monaco Editor y Periféricos Virtuales",
   "main": "electron/main.cjs",
   "scripts": {

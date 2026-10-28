@@ -1,10 +1,15 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.6.0)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.6.1)
 
 Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 
 ---
 
 ## 🚀 Características Principales
+
+- **Parche de Confiabilidad de Sistema y Selector de Archivos (v1.6.1):**
+  - **Selector Nativo en Primer Plano Garantizado:** Eliminación del bug de ventanas en segundo plano (`Issue #715`), asegurando que el diálogo de abrir archivo aparezca siempre al frente.
+  - **Arrastrar y Soltar (*Drag & Drop*):** Carga instantánea de archivos `.asm`, `.s` y `.txt` soltándolos directamente sobre cualquier parte de la ventana.
+  - **Cierre Instantáneo sin Bloqueos (`exitProcessOnClose: true`):** El botón `[X]` de la ventana termina el proceso de forma inmediata y limpia, sin requerir el Administrador de Tareas.
 
 - **Optimización Térmica y Fidelidad de Hardware (v1.6.0):**
   - **Coalescencia Gráfica a 60 FPS con `requestAnimationFrame`:** Notificaciones de periféricos desacopladas del ciclo síncrono de máquina, reduciendo el consumo de CPU de 100% a <1.5% en bucles continuos (laptop fría y silenciosa).
