@@ -385,12 +385,17 @@ html, body {
 .editor-tab-bar {
   display: flex;
   align-items: center;
-  background: #0d1117;
+  background: var(--bg-window-header);
   border-bottom: 1px solid var(--border-color);
   padding: 0 4px;
   height: 28px;
   overflow-x: auto;
   user-select: none;
+}
+
+body.light-theme .editor-tab-bar {
+  background: #e8eaed;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .editor-tabs-scroll {
@@ -418,9 +423,21 @@ html, body {
   white-space: nowrap;
 }
 
+body.light-theme .editor-tab {
+  background: #dadce0;
+  border: 1px solid #c4c7cc;
+  border-bottom: none;
+  color: #3c4043;
+}
+
 .editor-tab:hover {
   background: rgba(255, 255, 255, 0.07);
   color: var(--text-main);
+}
+
+body.light-theme .editor-tab:hover {
+  background: #f1f3f4;
+  color: #202124;
 }
 
 .editor-tab.active {
@@ -428,6 +445,13 @@ html, body {
   border-color: var(--border-color);
   color: var(--accent);
   font-weight: 600;
+  border-top: 2px solid var(--accent);
+}
+
+body.light-theme .editor-tab.active {
+  background: #ffffff;
+  border-color: var(--border-color);
+  color: var(--accent);
   border-top: 2px solid var(--accent);
 }
 
@@ -443,9 +467,18 @@ html, body {
   cursor: pointer;
 }
 
+body.light-theme .editor-tab-close {
+  color: #5f6368;
+}
+
 .editor-tab-close:hover {
   background: rgba(248, 81, 73, 0.2);
   color: var(--danger);
+}
+
+body.light-theme .editor-tab-close:hover {
+  background: rgba(217, 48, 37, 0.15);
+  color: #d93025;
 }
 
 .editor-tab-dirty {
@@ -480,6 +513,15 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+body.light-theme .tab-add-btn {
+  color: #5f6368;
+}
+
+body.light-theme .tab-add-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #202124;
 }
 
 .tab-add-btn:hover {
@@ -3072,6 +3114,57 @@ html, body {
 
 .light-theme #ascii-generated-db {
   color: #0969da !important;
+}
+
+/* ==========================================================================
+   PRUEBA DE ESCRITORIO (Execution Trace Table) Theme Styling
+   ========================================================================== */
+.trace-table-panel {
+  --trace-bg: #0b0e14;
+  --trace-th-bg: #2e5b27;
+  --trace-th-color: #ffffff;
+  --trace-th-border: #1e3d1a;
+  --trace-th-m: #3b7432;
+  --trace-th-flags: #264b20;
+  --trace-row-even: #1e2c1e;
+  --trace-row-odd: #172217;
+  --trace-border: #2e432e;
+  --trace-text: #dcedc8;
+  --trace-code: #81c784;
+  --trace-code-empty: #557b52;
+  --trace-m-bg: #213521;
+  --trace-flags-bg: #192819;
+  --trace-cell-changed: #c00000;
+  --trace-cell-changed-text: #ffffff;
+  --trace-hlt-bg: #b71c1c;
+  --trace-hlt-code-bg: #990000;
+  --trace-hlt-border: #7f0000;
+  --trace-stats-color: #7ee787;
+  --trace-btn-copy-color: #58a6ff;
+}
+
+body.light-theme .trace-table-panel {
+  --trace-bg: #ffffff;
+  --trace-th-bg: #548235;
+  --trace-th-color: #ffffff;
+  --trace-th-border: #385723;
+  --trace-th-m: #46702b;
+  --trace-th-flags: #3b6023;
+  --trace-row-even: #e2efda;
+  --trace-row-odd: #ffffff;
+  --trace-border: #c5e0b4;
+  --trace-text: #1b3b14;
+  --trace-code: #2e7d32;
+  --trace-code-empty: #7b9e76;
+  --trace-m-bg: #d0e7c5;
+  --trace-flags-bg: #dbeed2;
+  --trace-cell-changed: #c00000;
+  --trace-cell-changed-text: #ffffff;
+  --trace-hlt-bg: #c00000;
+  --trace-hlt-code-bg: #a00000;
+  --trace-hlt-border: #800000;
+  --trace-stats-color: #1a7f37;
+  --trace-btn-copy-color: #0969da;
 }
 
 

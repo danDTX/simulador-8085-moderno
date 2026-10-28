@@ -1,10 +1,17 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.6.1)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.7.0)
 
 Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 
 ---
 
 ## 🚀 Características Principales
+
+- **📋 Prueba de Escritorio y Matriz de Traza de Ejecución (v1.7.0):**
+  - **Generación Automática de Matriz de Estados:** Traza de ejecución paso a paso que registra `CODIGO`, registros `A`, `B`, `C`, `D`, `E`, `H`, `L`, `M` *(RAM[HL])*, `SP`, `PC` y banderas `Z`, `S`, `AC`, `CY`, `P`.
+  - **Detección Inteligente de Inicio:** Configurable con valor por defecto `0000H` (persistido), saltando automáticamente NOPs vacíos hasta la primera instrucción ensamblada si `0000H` no contiene código.
+  - **Resaltado Visual de Cambios:** Celdas modificadas resaltadas en rojo brillante (`#c00000`) con texto blanco, y fila completa en rojo sólido para `HLT`.
+  - **Exportación Multi-Formato:** Copiado al portapapeles enriquecido (HTML + TSV para pegar directamente con `Ctrl+V` en Excel/Google Sheets conservando colores y columnas), exportación a hoja de cálculo `.xls` y archivo `.csv`.
+  - **Adaptabilidad a Modo Claro:** Barra de pestañas del editor con diseño moderno y nítido, y tabla de traza estilizada estilo Excel verde suave sobre fondo blanco.
 
 - **Parche de Confiabilidad de Sistema y Selector de Archivos (v1.6.1):**
   - **Selector Nativo en Primer Plano Garantizado:** Eliminación del bug de ventanas en segundo plano (`Issue #715`), asegurando que el diálogo de abrir archivo aparezca siempre al frente.

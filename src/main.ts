@@ -20,6 +20,7 @@ import { createDelayGeneratorDialog } from './ui/dialogs/delayGeneratorDialog.js
 import { createProgrammerCalcPanel } from './ui/panels/programmerCalcPanel.js';
 import { createDisplayEncoderPanel } from './ui/panels/displayEncoderPanel.js';
 import { createAsciiTablePanel } from './ui/panels/asciiTablePanel.js';
+import { createTraceTablePanel } from './ui/panels/traceTablePanel.js';
 import { createFlowchartPanel, FlowchartPanel } from './ui/panels/flowchartPanel.js';
 import { createInstructionsPanel, InstructionsPanelInstance } from './ui/panels/instructionsPanel.js';
 import { AssemblyResult } from './core/types.js';
@@ -1015,6 +1016,32 @@ class SimulatorApp {
     this.winManager.bringToFront('ascii-table-view');
   }
 
+  public openTraceTableWindow(): void {
+    if (this.winManager.getWindow('trace-table-view')) {
+      this.winManager.bringToFront('trace-table-view');
+      return;
+    }
+
+    const panel = createTraceTablePanel({
+      cpu: this.cpu
+    });
+
+    this.winManager.createWindow({
+      id: 'trace-table-view',
+      title: '📋 Prueba de Escritorio (Tabla de Traza de Ejecución y Estados)',
+      icon: '📋',
+      x: 180,
+      y: 75,
+      width: 880,
+      height: 520,
+      minWidth: 640,
+      minHeight: 360,
+      content: panel.element
+    });
+    this.winManager.bringToFront('trace-table-view');
+    panel.runTrace();
+  }
+
   public openFlowchartWindow(): void {
     this.flowchartPanelInstance = createFlowchartPanel(this.editor.getValue());
     this.winManager.createWindow({
@@ -1207,6 +1234,10 @@ class SimulatorApp {
 
     document.getElementById('menu-tool-ascii')?.addEventListener('click', () => {
       this.openAsciiTableWindow();
+    });
+
+    document.getElementById('menu-tool-trace-table')?.addEventListener('click', () => {
+      this.openTraceTableWindow();
     });
 
     document.getElementById('menu-tool-delay-gen')?.addEventListener('click', () => {

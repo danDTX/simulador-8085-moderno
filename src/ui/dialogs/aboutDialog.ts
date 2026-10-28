@@ -1,3 +1,5 @@
+export const APP_VERSION = '1.7.0';
+
 export function showAboutDialog(): void {
   const existing = document.getElementById('about-modal-backdrop');
   if (existing) existing.remove();
@@ -27,7 +29,7 @@ export function showAboutDialog(): void {
             Simulador Moderno Intel 8085 (Desktop MDI)
           </h2>
           <div style="font-size: 12px; color: var(--text-muted);">
-            Versión 1.3.0
+            Versión ${APP_VERSION}
           </div>
         </div>
 

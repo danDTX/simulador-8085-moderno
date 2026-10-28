@@ -11,6 +11,8 @@ export interface AppConfig {
   openTabs: OpenTabConfig[];
   activeTabName: string;
   recentFiles: string[];
+  traceTableStartPC?: string;
+  traceTableMaxSteps?: number;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -19,7 +21,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   zoomLevel: 1.0,
   openTabs: [],
   activeTabName: 'sin_titulo.asm',
-  recentFiles: []
+  recentFiles: [],
+  traceTableStartPC: '0000H',
+  traceTableMaxSteps: 1000
 };
 
 const CONFIG_FILE = 'sim8085_config.json';

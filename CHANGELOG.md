@@ -4,6 +4,34 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.7.0] - 2026-10-28
+
+### 🚀 Nuevas Características (Features)
+- **📋 Ventana y Motor de Prueba de Escritorio (Matriz de Traza de Ejecución):**
+  - Nueva herramienta didáctica en el Menú **Herramientas $\to$ 📋 Prueba de Escritorio (Tabla de Traza)...** (`src/ui/panels/traceTablePanel.ts` y `src/core/traceEngine.ts`).
+  - Ejecución en segundo plano sobre un clon aislado de la CPU para no alterar la sesión activa de depuración del usuario.
+  - Registro paso a paso de `CODIGO`, registros `A`, `B`, `C`, `D`, `E`, `H`, `L`, `M` *(RAM en HL)*, `SP`, `PC` y banderas `Z`, `S`, `AC`, `CY`, `P`.
+  - Detección inteligente de inicio en memoria: salta automáticamente NOPs vacíos (`00H`) si `0000H` no contiene código, o inicia en la dirección que el usuario defina (persistida en `sim8085_config.json`).
+  - Límite de seguridad contra bucles infinitos configurable (por defecto 1,000 instrucciones).
+  - Resaltado en **rojo brillante (`#c00000`) con texto blanco** para cada celda de registro o bandera que cambió en esa instrucción, y banda roja completa para la instrucción `HLT`.
+  - **Exportación Versátil:**
+    - Botón **📋 Copiar Tabla**: Copia formato enriquecido (HTML + TSV) para pegar directamente con `Ctrl+V` en Microsoft Excel o Google Sheets conservando columnas y colores.
+    - Botón **📥 Exportar Excel (.xls)**: Hoja de cálculo con colores y estilos.
+    - Botón **📄 CSV**: Archivo delimitado por comas.
+
+### 🎨 Mejoras de Interfaz y Modo Claro (UI/UX)
+- **Adaptabilidad de la Prueba de Escritorio a Modo Claro:**
+  - En modo claro, la tabla adopta el diseño idéntico a una hoja de cálculo Excel (encabezado verde `#548235`, filas alternadas `#e2efda` y `#ffffff`, texto oscuro `#1b3b14` y resaltados rojos legibles).
+  - Corrección de la columna `PC` para que no se pinte de rojo innecesariamente en cada instrucción.
+  - Textos y botones de la barra de herramientas con contraste óptimo en ambos temas mediante variables CSS.
+- **Pestañas del Editor ASM en Modo Claro:**
+  - La barra de pestañas `.editor-tab-bar` ahora utiliza fondos adaptables (`#e8eaed` en modo claro en lugar de negro fijo `#0d1117`).
+  - Pestañas inactivas con fondo visible (`#dadce0`), pestaña activa en blanco limpio con borde superior de acento, y botón `+` de añadir pestaña de alta visibilidad.
+- **Sincronización de Versión en Diálogo "Acerca de":**
+  - Actualización de la versión mostrada en `Acerca de 8085sim Modern` a `v1.7.0` dinámicamente vinculada a `APP_VERSION`.
+
+---
+
 ## [1.6.1] - 2026-10-28
 
 ### 🐛 Correcciones de Errores y Confiabilidad (Bug Fixes)
