@@ -53,6 +53,15 @@ class SimulatorApp {
   private uiFrameRequested: boolean = false;
 
   constructor() {
+    const winNeu = (window as any).Neutralino;
+    if (winNeu && typeof winNeu.init === 'function') {
+      try {
+        winNeu.init();
+      } catch (e) {
+        console.warn('Neutralino.init error:', e);
+      }
+    }
+
     this.perifs = new PeripheralsManager(this.cpu);
 
     const desktop = document.getElementById('mdi-desktop') as HTMLElement;
@@ -62,8 +71,46 @@ class SimulatorApp {
     this.initUI();
     this.setupMenu();
     this.setupShortcuts();
+    this.setupDragAndDrop();
     this.setupExitHandlers();
     this.loadInitialProgram();
+  }
+
+  private setupDragAndDrop(): void {
+    window.addEventListener('dragover', (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    window.addEventListener('drop', async (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.name.match(/\.(asm|s|txt)$/i)) {
+          try {
+            const text = await file.text();
+            const filePath = (file as any).path || undefined;
+            this.editor.openTab(file.name, text, undefined, filePath);
+            this.setCurrentFileName(file.name);
+            this.saveToStorage(text);
+            if (filePath) {
+              await ConfigManager.addRecentFile(filePath);
+              this.renderRecentFilesMenu();
+            }
+            await this.saveAppState();
+            this.winManager.bringToFront('editor');
+            this.assembleCode();
+            this.editor.setStatus(`📂 Abierto por arrastre: ${file.name}`);
+          } catch (err) {
+            console.error('Error cargando archivo arrastrado:', err);
+          }
+        }
+      }
+    });
   }
 
   private initUI(): void {
@@ -1255,86 +1302,46 @@ class SimulatorApp {
   }
 
   public async openAsmFile(): Promise<void> {
-    // 1. Neutralino Native API (Prioridad desktop para obtener ruta absoluta y registrar en recientes)
-    const winNeu = (window as any).Neutralino;
-    if (winNeu && winNeu.os && winNeu.filesystem) {
-      try {
-        const entries = await winNeu.os.showOpenDialog('Abrir archivo ASM', {
-          filters: [{ name: 'Código Ensamblador (*.asm, *.s, *.txt)', extensions: ['asm', 's', 'txt'] }],
-          multiSelections: false
-        });
-        if (entries && entries.length > 0) {
-          const filePath = entries[0];
-          const text = await winNeu.filesystem.readFile(filePath);
-          const fileName = filePath.split(/[\\/]/).pop() || 'programa.asm';
-          this.editor.openTab(fileName, text, undefined, filePath);
-          this.setCurrentFileName(fileName);
-          this.saveToStorage(text);
-          await ConfigManager.addRecentFile(filePath);
-          this.renderRecentFilesMenu();
-          await this.saveAppState();
-          this.winManager.bringToFront('editor');
-          this.assembleCode();
-          this.editor.setStatus(`📂 Abierto: ${fileName}`);
-          return;
-        }
-        return;
-      } catch (err) {
-        console.warn('Neutralino openDialog failed:', err);
-      }
-    }
+    // Selector nativo de Edge/Chromium WebView2:
+    // Garantiza que la ventana de selección SIEMPRE aparezca en primer plano frente a la app
+    // y no bloquea el servidor de procesos en segundo plano.
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.asm,.s,.txt';
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    document.body.appendChild(input);
 
-    // 2. Modern Chromium / Edge WebView2 File System Access API
-    if (typeof (window as any).showOpenFilePicker === 'function') {
+    input.onchange = async (e) => {
       try {
-        const [handle] = await (window as any).showOpenFilePicker({
-          id: 'sim8085_asm_dir',
-          types: [
-            {
-              description: 'Código Ensamblador Intel 8085 (*.asm, *.s, *.txt)',
-              accept: { 'text/plain': ['.asm', '.s', '.txt'] }
-            }
-          ],
-          multiple: false
-        });
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
 
-        const file = await handle.getFile();
         const text = await file.text();
-        this.editor.openTab(file.name, text, handle);
+        const filePath = (file as any).path || undefined;
+        this.editor.openTab(file.name, text, undefined, filePath);
         this.setCurrentFileName(file.name);
         this.saveToStorage(text);
+        if (filePath) {
+          await ConfigManager.addRecentFile(filePath);
+          this.renderRecentFilesMenu();
+        }
         await this.saveAppState();
         this.winManager.bringToFront('editor');
         this.assembleCode();
         this.editor.setStatus(`📂 Abierto: ${file.name}`);
-        return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
-        console.warn('showOpenFilePicker failed, falling back:', err);
+      } catch (err) {
+        console.error('Error al abrir archivo:', err);
+        this.editor.setStatus('⚠️ Error al abrir archivo');
+      } finally {
+        input.remove();
       }
-    }
-
-    // 3. Fallback input file
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.asm,.s,.txt';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (re) => {
-        if (typeof re.target?.result === 'string') {
-          this.editor.openTab(file.name, re.target.result);
-          this.setCurrentFileName(file.name);
-          this.saveToStorage(re.target.result);
-          this.saveAppState();
-          this.winManager.bringToFront('editor');
-          this.assembleCode();
-          this.editor.setStatus(`📂 Abierto: ${file.name}`);
-        }
-      };
-      reader.readAsText(file);
     };
+
+    input.oncancel = () => {
+      input.remove();
+    };
+
     input.click();
   }
 
@@ -1502,42 +1509,44 @@ class SimulatorApp {
     }
   }
 
-  private exitApp(): void {
+  private async exitApp(): Promise<void> {
+    try {
+      await this.saveAppState();
+    } catch (e) {
+      console.warn('saveAppState error during exit:', e);
+    }
+
     const winNeu = (window as any).Neutralino;
     if (winNeu && winNeu.app && typeof winNeu.app.exit === 'function') {
-      winNeu.app.exit();
-    } else {
-      window.close();
+      try {
+        await winNeu.app.exit();
+      } catch (e) {
+        console.warn('winNeu.app.exit error:', e);
+      }
     }
+
+    try {
+      window.close();
+    } catch {}
   }
 
   private setupExitHandlers(): void {
-    // 1. Neutralino native window close event
     const winNeu = (window as any).Neutralino;
-    if (winNeu) {
-      if (typeof winNeu.init === 'function') {
+    if (winNeu && winNeu.events && typeof winNeu.events.on === 'function') {
+      winNeu.events.on('windowClose', async () => {
         try {
-          winNeu.init();
-        } catch (e) {
-          console.warn('Neutralino.init error:', e);
-        }
-      }
-      if (winNeu.events && typeof winNeu.events.on === 'function') {
-        winNeu.events.on('windowClose', async () => {
-          await this.saveAppState();
           await this.handleAppExit();
-        });
-      }
+        } catch (e) {
+          console.error('Error handling windowClose:', e);
+          this.exitApp();
+        }
+      });
     }
 
-    // 2. Browser beforeunload fallback
-    window.addEventListener('beforeunload', (e) => {
-      this.saveAppState();
-      if (this.editor && this.editor.hasUnsavedChanges()) {
-        e.preventDefault();
-        e.returnValue = '';
-        return '';
-      }
+    window.addEventListener('beforeunload', () => {
+      try {
+        this.saveAppState();
+      } catch {}
     });
   }
 
