@@ -545,7 +545,6 @@ class SimulatorApp {
     this.cpu.halted = false;
 
     this.editor.needsAssemble = false;
-    this.editor.isDirty = false;
     const byteCount = result.codeAddresses.size;
     this.editor.setStatus(`Ensamblado con éxito (${byteCount} bytes en memoria)`, false, false);
 
@@ -1574,10 +1573,15 @@ class SimulatorApp {
       });
     }
 
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener('beforeunload', (e) => {
       try {
         this.saveAppState();
       } catch {}
+      if (this.editor && this.editor.hasUnsavedChanges()) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
     });
   }
 

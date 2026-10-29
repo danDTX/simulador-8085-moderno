@@ -4,6 +4,20 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.7.1] - 2026-10-29
+
+### 🐛 Correcciones de Errores y Confiabilidad (Bug Fixes)
+- **Restauración del Diálogo de Confirmación de Cambios no Guardados:**
+  - **Corrección de `isDirty` al Ensamblar (`src/main.ts`):** Al compilar con `F9`, `F5` o `F7`, se eliminó la asignación indebida `this.editor.isDirty = false`. Ensamblar a memoria RAM (`needsAssemble = false`) ya no borra el estado de modificación respecto a disco. El indicador de cambios pendientes (punto amarillo `•`) y la protección de archivo permanecen activos hasta que se guarde explícitamente (`Ctrl+S`).
+  - **Interceptación Segura del Cierre de Ventana (`[X]` y `Alt+F4`):**
+    - Se ajustó `"exitProcessOnClose": false` en `neutralino.config.json` para que el evento nativo `windowClose` sea recibido por el manejador `handleAppExit()`.
+    - Si existen archivos abiertos con cambios sin guardar, se despliega el cuadro modal de confirmación con las opciones: *Guardar y Cerrar*, *Descartar Cambios* o *Cancelar*.
+    - Si no hay cambios pendientes, la aplicación cierra el proceso limpiamente de inmediato.
+- **Sincronización de Versión Oficial:**
+  - Actualización oficial a `v1.7.1` en `package.json`, `neutralino.config.json` y el diálogo institucional `Acerca de 8085sim Modern`.
+
+---
+
 ## [1.7.0] - 2026-10-28
 
 ### 🚀 Nuevas Características (Features)
