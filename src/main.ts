@@ -5,6 +5,8 @@ import { MDIWindowManager } from './ui/windowManager.js';
 import { CodeEditor, EditorTab } from './ui/editor.js';
 import { showUnsavedChangesDialog } from './ui/dialogs/unsavedChangesDialog.js';
 import { showAboutDialog } from './ui/dialogs/aboutDialog.js';
+import { checkGitHubRelease, UpdateInfo } from './core/updateManager.js';
+import { showUpdateDialog } from './ui/dialogs/updateDialog.js';
 import { createMainConsolePanel } from './ui/panels/mainConsolePanel.js';
 import { createVirtualKeyboardPanel, VirtualKeyboardInstance } from './ui/panels/virtualKeyboardPanel.js';
 import { createDipSwitchesPanel, DipSwitchesInstance } from './ui/panels/dipSwitchesPanel.js';
@@ -79,6 +81,37 @@ class SimulatorApp {
     this.setupDragAndDrop();
     this.setupExitHandlers();
     this.loadInitialProgram();
+    this.initAutoUpdateCheck();
+  }
+
+  private initAutoUpdateCheck(): void {
+    setTimeout(async () => {
+      try {
+        const updateInfo = await checkGitHubRelease();
+        if (updateInfo) {
+          this.notifyUpdateAvailable(updateInfo);
+        }
+      } catch (err) {
+        // Fallo silencioso en segundo plano sin interrumpir al usuario
+      }
+    }, 3500);
+  }
+
+  private notifyUpdateAvailable(update: UpdateInfo): void {
+    if (document.getElementById('taskbar-update-pill')) return;
+    const taskbar = document.getElementById('mdi-taskbar');
+    if (!taskbar) return;
+
+    const pill = document.createElement('div');
+    pill.id = 'taskbar-update-pill';
+    pill.className = 'taskbar-update-pill';
+    pill.innerHTML = `<span>🚀</span> <strong>¡Actualización ${update.tagName}!</strong>`;
+    pill.title = 'Haz clic para revisar las novedades e instalar la actualización';
+    pill.addEventListener('click', () => {
+      showUpdateDialog(update, false);
+    });
+
+    taskbar.appendChild(pill);
   }
 
   private setupDragAndDrop(): void {
@@ -1366,6 +1399,17 @@ class SimulatorApp {
     // Help & About Dialog (UMSS - FCyT)
     document.getElementById('menu-help-instructions')?.addEventListener('click', () => {
       this.openInstructionsDictionaryWindow();
+    });
+    document.getElementById('menu-help-check-updates')?.addEventListener('click', async () => {
+      const btn = document.getElementById('menu-help-check-updates');
+      const originalText = btn ? btn.textContent : '';
+      if (btn) btn.textContent = '🔄 Comprobando en GitHub...';
+      try {
+        const updateInfo = await checkGitHubRelease();
+        showUpdateDialog(updateInfo, true);
+      } finally {
+        if (btn && originalText) btn.textContent = originalText;
+      }
     });
     document.getElementById('menu-help-about')?.addEventListener('click', () => {
       showAboutDialog();

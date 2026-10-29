@@ -1,4 +1,5 @@
-export const APP_VERSION = '1.7.1';
+import { APP_VERSION } from '../../core/updateManager.js';
+export { APP_VERSION };
 
 export function showAboutDialog(): void {
   const existing = document.getElementById('about-modal-backdrop');
