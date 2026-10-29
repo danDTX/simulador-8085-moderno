@@ -1,10 +1,18 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.7.0)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.8.0)
 
 Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 
 ---
 
 ## 🚀 Características Principales
+
+- **🎛️ Espacio de Trabajo Responsivo y Divisor Deslizante (v1.8.0):**
+  - **Divisor Interactivo con Snap 50/50:** Barra divisoria horizontal fluida entre el Editor ASM y la Consola CPU con arrastre suave, límites seguros (mínimo 320px/460px), restablecimiento instantáneo a 50/50 mediante doble clic y persistencia automática en `sim8085_config.json`.
+  - **Registros de CPU Compactos por Cuartetos:** Formato binario optimizado (`0000 0000   0000 0000`) con escala alineada 1:1, eliminando el corte horizontal en pantallas de laptops y proyectores de baja resolución.
+  - **Corrección Canónica en Displays de 15 Segmentos:** Subsanación del bug histórico de `8085sim` en el dígito `'8'` (`00H, 7FH`) e iluminación completa de la barra central ($G_1$ y $G_2$ activadas por el bit 3 del puerto impar) en todos los caracteres alfanuméricos (`8`, `F`, `A`, `E`, `H`, etc.).
+  - **Desensamblado Total de Memoria:** Visor de instrucciones desensambladas que cubre todo el rango de programa en memoria RAM.
+  - **Detección Preventiva de Caracteres no ASCII:** Advertencia clara e inmediata en el banner si se introduce la letra `ñ` o caracteres incompatibles en etiquetas de ensamblador.
+  - **Apertura Optimizada a Pantalla Completa:** Inicialización maximizada automática que aprovecha el 100% del monitor sin desbordes.
 
 - **📋 Prueba de Escritorio y Matriz de Traza de Ejecución (v1.7.0):**
   - **Generación Automática de Matriz de Estados:** Traza de ejecución paso a paso que registra `CODIGO`, registros `A`, `B`, `C`, `D`, `E`, `H`, `L`, `M` *(RAM[HL])*, `SP`, `PC` y banderas `Z`, `S`, `AC`, `CY`, `P`.
