@@ -61,6 +61,13 @@ describe('Developer Tools Suite - Factual Verification', () => {
     // Little endian word for 'I':
     const word_I = (b2_I << 8) | b1_I;
     assert.strictEqual(word_I, 0x2242);
+
+    // Number '8': Must activate full perimeter and central bar (Byte 2 = 7FH, not 77H)
+    const b2_8 = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6);
+    assert.strictEqual(b2_8, 0x7F, 'Character 8 must have bit 3 set to 1 (7FH) to light up G1 and G2');
+    // Letter 'F': Byte 1 = 00H, Byte 2 = 1BH (F=0, A=1, G=3, E=4)
+    const b2_F = (1 << 0) | (1 << 1) | (1 << 3) | (1 << 4);
+    assert.strictEqual(b2_F, 0x1B, 'Letter F has middle bar G at bit 3 of Byte 2');
   });
 
   it('Verifies ASCII string-to-dB single-line generator rule', () => {

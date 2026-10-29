@@ -28,19 +28,22 @@ async function runTests() {
   assert(initial.theme === 'dark', 'Default theme is dark');
   assert(initial.wordWrap === true, 'Default wordWrap is true');
   assert(initial.zoomLevel === 1.0, 'Default zoomLevel is 1.0');
+  assert(initial.splitRatio === 0.5, 'Default splitRatio is 0.5');
   assert(Array.isArray(initial.openTabs) && initial.openTabs.length === 0, 'Initial openTabs is empty');
   assert(Array.isArray(initial.recentFiles) && initial.recentFiles.length === 0, 'Initial recentFiles is empty');
 
-  // 2. Save Theme & Zoom
-  await ConfigManager.save({ theme: 'light', zoomLevel: 1.25 });
+  // 2. Save Theme, Zoom & SplitRatio
+  await ConfigManager.save({ theme: 'light', zoomLevel: 1.25, splitRatio: 0.62 });
   const updated1 = ConfigManager.get();
   assert(updated1.theme === 'light', 'Theme updated to light in cache');
   assert(updated1.zoomLevel === 1.25, 'Zoom level updated to 1.25');
+  assert(updated1.splitRatio === 0.62, 'Split ratio updated to 0.62');
 
   // Verify persistence in localStorage fallback
   const reloaded = await ConfigManager.load();
   assert(reloaded.theme === 'light', 'Persisted theme survives reload');
   assert(reloaded.zoomLevel === 1.25, 'Persisted zoom survives reload');
+  assert(reloaded.splitRatio === 0.62, 'Persisted splitRatio survives reload');
 
   // 3. Recent Files management
   await ConfigManager.addRecentFile('C:\\Users\\LENOVO\\Documents\\cajero.asm');

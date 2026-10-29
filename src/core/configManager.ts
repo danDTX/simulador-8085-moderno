@@ -13,6 +13,7 @@ export interface AppConfig {
   recentFiles: string[];
   traceTableStartPC?: string;
   traceTableMaxSteps?: number;
+  splitRatio?: number;
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -23,7 +24,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   activeTabName: 'sin_titulo.asm',
   recentFiles: [],
   traceTableStartPC: '0000H',
-  traceTableMaxSteps: 1000
+  traceTableMaxSteps: 1000,
+  splitRatio: 0.5
 };
 
 const CONFIG_FILE = 'sim8085_config.json';

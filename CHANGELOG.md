@@ -7,6 +7,19 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 ## [1.7.1] - 2026-10-29
 
 ### 🚀 Nuevas Características y Mejoras de Interfaz (UX/UI)
+- **↔️ Divisor Interactivo Deslizable (Draggable Splitter) con Memoria:**
+  - Nuevo divisor vertical interactivo (`#desktop-splitter`) situado entre el Editor ASM y la Consola Central de la CPU.
+  - Permite arrastrar libremente hacia la izquierda o derecha para redistribuir el espacio visual según las necesidades del usuario.
+  - **Límites de Seguridad y Centrado Rápido:** Protege la legibilidad con anchos mínimos (Editor $\ge 320\text{px}$, Consola $\ge 460\text{px}$). Doble clic en la barra restablece instantáneamente el reparto exacto al 50% / 50%.
+  - **Persistencia de Proporción:** La posición (`splitRatio`) se almacena automáticamente en `sim8085_config.json` y se restaura fielmente al reiniciar la aplicación.
+- **📟 Visualización Compacta y Responsiva de Registros de la CPU (Cero Recortes):**
+  - Se optimizó la representación de los registros LED de 16 bits agrupándolos por nibbles (`0000 0000   0000 0000`) con su escala de bits perfectamente alineada (`7654 3210   7654 3210`).
+  - Reducción de más de 140px de ancho total requerido por el rack de registros (`.digital-regs-rack` pasa de 375px a 232px).
+  - La columna hexadecimal (`dreg-hex`) y los 4 bits inferiores (3, 2, 1, 0) ya nunca se recortan ni ocultan, incluso en monitores pequeños de laptop o cuando el usuario arrastra el divisor para agrandar el editor.
+- **💡 Corrección Integral del Display de 15 Segmentos (Herramienta y Periférico):**
+  - **Corrección Histórica del Número '8':** El valor de Byte 2 para el dígito `'8'` en la tabla oficial de 8085sim era erróneamente `00H, 77H` (idéntico a la letra `'O'`), dejando el segmento horizontal central apagado. Se corrigió a `00H, 7FH` (con el Bit 3 activado a 1).
+  - **Mapeo Completo del Segmento Central (Bit 3 de Byte 2):** Se enlazó el Bit 3 del Byte 2 (`segG_b2`) para que active simultáneamente los segmentos internos $G_1$ y $G_2$ en la vista previa interactiva SVG.
+  - **Visualización Fiel de 13 Caracteres:** Caracteres como `'8'`, `'F'`, `'A'`, `'E'`, `'H'`, `'P'`, `'R'`, `'2'`, `'3'`, `'4'`, `'5'`, `'6'` y `'9'` ahora iluminan su barra horizontal central con precisión técnica tanto en el codificador como en el periférico de simulación.
 - **🖥️ Inicio Siempre Maximizado al Monitor:**
   - Configuración `"maximize": true` en `neutralino.config.json` y llamada nativa segura `Neutralino.window.maximize()` en arranque. La ventana se expande al 100% del área útil del monitor en cualquier pantalla (laptops, monitores HD, 2K o 4K) sin requerir atajos de teclado (`Win + ↑`).
 - **📐 Layout Fijo 50/50 y Responsividad Completa:**

@@ -69,43 +69,43 @@ export function createMainConsolePanel(
               <!-- AF -->
               <div class="dreg-row">
                 <span class="dreg-label">AF</span>
-                <div class="dreg-bin" id="dreg-bin-af">00000000 00000000</div>
+                <div class="dreg-bin" id="dreg-bin-af">0000 0000   0000 0000</div>
                 <div class="dreg-hex" id="dreg-hex-af">0000</div>
               </div>
               <!-- BC -->
               <div class="dreg-row">
                 <span class="dreg-label">BC</span>
-                <div class="dreg-bin" id="dreg-bin-bc">00000000 00000000</div>
+                <div class="dreg-bin" id="dreg-bin-bc">0000 0000   0000 0000</div>
                 <div class="dreg-hex" id="dreg-hex-bc">0000</div>
               </div>
               <!-- DE -->
               <div class="dreg-row">
                 <span class="dreg-label">DE</span>
-                <div class="dreg-bin" id="dreg-bin-de">00000000 00000000</div>
+                <div class="dreg-bin" id="dreg-bin-de">0000 0000   0000 0000</div>
                 <div class="dreg-hex" id="dreg-hex-de">0000</div>
               </div>
               <!-- HL -->
               <div class="dreg-row">
                 <span class="dreg-label">HL</span>
-                <div class="dreg-bin" id="dreg-bin-hl">00000000 00000000</div>
+                <div class="dreg-bin" id="dreg-bin-hl">0000 0000   0000 0000</div>
                 <div class="dreg-hex" id="dreg-hex-hl">0000</div>
               </div>
               <!-- SP -->
               <div class="dreg-row">
                 <span class="dreg-label dreg-sp-lbl">SP</span>
-                <div class="dreg-bin" id="dreg-bin-sp">11111111 11111111</div>
+                <div class="dreg-bin" id="dreg-bin-sp">1111 1111   1111 1111</div>
                 <div class="dreg-hex" id="dreg-hex-sp">FFFF</div>
               </div>
               <!-- PC -->
               <div class="dreg-row">
                 <span class="dreg-label dreg-pc-lbl">PC</span>
-                <div class="dreg-bin" id="dreg-bin-pc">0 0 0 0 0 0 0 0   0 0 0 0 0 0 0 0</div>
+                <div class="dreg-bin" id="dreg-bin-pc">0000 0000   0000 0000</div>
                 <div class="dreg-hex" id="dreg-hex-pc">0000</div>
               </div>
-              <!-- Bit Scale 7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0 exactly aligned -->
+              <!-- Bit Scale 7654 3210   7654 3210 exactly aligned -->
               <div class="dreg-row dreg-scale-row">
                 <span class="dreg-label"></span>
-                <div class="dreg-bin dreg-scale-text">7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0</div>
+                <div class="dreg-bin dreg-scale-text">7654 3210   7654 3210</div>
                 <div class="dreg-hex"></div>
               </div>
             </div>
@@ -562,9 +562,9 @@ export function createMainConsolePanel(
   const update = () => {
     const hex2 = (v: number) => (v & 0xff).toString(16).padStart(2, '0').toUpperCase();
     const hex4 = (v: number) => (v & 0xffff).toString(16).padStart(4, '0').toUpperCase();
-    const bin8Spaced = (v: number) => {
+    const bin8Nibbles = (v: number) => {
       const b = (v & 0xff).toString(2).padStart(8, '0');
-      return b.split('').join(' ');
+      return `${b.slice(0, 4)} ${b.slice(4)}`;
     };
 
     const af = (cpu.regs.a << 8) | cpu.getPSW();
@@ -580,7 +580,7 @@ export function createMainConsolePanel(
       const low = val16 & 0xff;
       const binElem = panel.querySelector(`#dreg-bin-${id}`);
       const hexElem = panel.querySelector(`#dreg-hex-${id}`);
-      if (binElem) binElem.textContent = `${bin8Spaced(high)}   ${bin8Spaced(low)}`;
+      if (binElem) binElem.textContent = `${bin8Nibbles(high)}   ${bin8Nibbles(low)}`;
       if (hexElem) hexElem.textContent = hex4(val16);
     };
 

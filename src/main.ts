@@ -52,6 +52,7 @@ class SimulatorApp {
   private executionIntervalMs: number = 16;
   private clockFrequencyHz: number = 300000;
   private uiFrameRequested: boolean = false;
+  private splitRatio: number = 0.5;
 
   constructor() {
     const winNeu = (window as any).Neutralino;
@@ -181,6 +182,59 @@ class SimulatorApp {
       isFixed: true
     });
 
+    // 3. SPLITTER INTERACTIVO DESLIZABLE (Editor <-> Consola Central)
+    const desktopEl = document.getElementById('mdi-desktop');
+    if (desktopEl) {
+      const splitter = document.createElement('div');
+      splitter.id = 'desktop-splitter';
+      splitter.className = 'desktop-splitter';
+      splitter.title = 'Arrastra para redimensionar Editor y Consola (Doble clic para centrar 50/50)';
+      desktopEl.appendChild(splitter);
+
+      let isDragging = false;
+
+      splitter.addEventListener('pointerdown', (e: PointerEvent) => {
+        isDragging = true;
+        splitter.classList.add('dragging');
+        splitter.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+
+      splitter.addEventListener('pointermove', (e: PointerEvent) => {
+        if (!isDragging) return;
+        const rect = desktopEl.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const gap = 8;
+        const splitterW = 8;
+        const usableW = desktopEl.clientWidth - (gap * 2) - splitterW;
+        if (usableW > 0) {
+          const newRatio = (currentX - gap) / usableW;
+          this.splitRatio = Math.max(0.2, Math.min(0.8, newRatio));
+          this.layoutTiledDesktop();
+        }
+      });
+
+      const finishDrag = (e: PointerEvent) => {
+        if (!isDragging) return;
+        isDragging = false;
+        splitter.classList.remove('dragging');
+        try {
+          splitter.releasePointerCapture(e.pointerId);
+        } catch {}
+        this.saveAppState();
+      };
+
+      splitter.addEventListener('pointerup', finishDrag);
+      splitter.addEventListener('pointercancel', finishDrag);
+
+      // Doble clic: Regresar al 50/50 exacto
+      splitter.addEventListener('dblclick', () => {
+        this.splitRatio = 0.5;
+        this.layoutTiledDesktop();
+        this.saveAppState();
+      });
+    }
+
     this.layoutTiledDesktop();
     window.addEventListener('resize', () => this.layoutTiledDesktop());
   }
@@ -193,21 +247,40 @@ class SimulatorApp {
     if (availableW <= 0 || availableH <= 0) return;
 
     const gap = 8;
-    const halfW = Math.max(380, Math.floor((availableW - (gap * 3)) / 2));
-    const winH = Math.max(400, availableH - (gap * 2));
+    const splitterW = 8;
+    const totalW = availableW - (gap * 2) - splitterW;
+
+    // Límites de seguridad para evitar solapamientos
+    const minEditorW = 320;
+    const minConsoleW = 460;
+
+    let editorW = Math.floor(totalW * this.splitRatio);
+    if (editorW < minEditorW) editorW = minEditorW;
+    if (totalW - editorW < minConsoleW) editorW = totalW - minConsoleW;
+    if (editorW < 200) editorW = 200;
+
+    const consoleW = Math.max(minConsoleW, totalW - editorW);
+    const winH = Math.max(300, availableH - (gap * 2));
 
     const editorWin = document.getElementById('mdi-win-editor');
     if (editorWin) {
       editorWin.style.left = `${gap}px`;
       editorWin.style.top = `${gap}px`;
-      editorWin.style.width = `${halfW}px`;
+      editorWin.style.width = `${editorW}px`;
       editorWin.style.height = `${winH}px`;
+    }
+
+    const splitter = document.getElementById('desktop-splitter');
+    if (splitter) {
+      splitter.style.left = `${gap + editorW}px`;
+      splitter.style.top = `${gap}px`;
+      splitter.style.width = `${splitterW}px`;
+      splitter.style.height = `${winH}px`;
     }
 
     const consoleWin = document.getElementById('mdi-win-main-console');
     if (consoleWin) {
-      const consoleX = gap + halfW + gap;
-      const consoleW = Math.max(480, availableW - consoleX - gap);
+      const consoleX = gap + editorW + splitterW;
       consoleWin.style.left = `${consoleX}px`;
       consoleWin.style.top = `${gap}px`;
       consoleWin.style.width = `${consoleW}px`;
@@ -393,7 +466,13 @@ class SimulatorApp {
       this.applyZoom(config.zoomLevel, true);
     }
 
-    // 4. Renderizar historial de archivos recientes
+    // 4. Aplicar Proporción del Splitter guardada
+    if (typeof config.splitRatio === 'number' && config.splitRatio >= 0.2 && config.splitRatio <= 0.8) {
+      this.splitRatio = config.splitRatio;
+      this.layoutTiledDesktop();
+    }
+
+    // 5. Renderizar historial de archivos recientes
     this.renderRecentFilesMenu();
 
     // 5. Restaurar pestañas abiertas en la sesión anterior
@@ -459,7 +538,8 @@ class SimulatorApp {
       activeTabName,
       theme: document.body.classList.contains('light-theme') ? 'light' : 'dark',
       wordWrap: this.editor.isWordWrap,
-      zoomLevel: this.currentZoom
+      zoomLevel: this.currentZoom,
+      splitRatio: this.splitRatio
     });
   }
 

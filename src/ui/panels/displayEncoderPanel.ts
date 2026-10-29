@@ -86,7 +86,7 @@ const D15_PRESETS: { char: string; b1: number; b2: number }[] = [
   { char: '5', b1: 0x00, b2: 0x6b },
   { char: '6', b1: 0x00, b2: 0x7b },
   { char: '7', b1: 0x00, b2: 0x46 },
-  { char: '8', b1: 0x00, b2: 0x77 },
+  { char: '8', b1: 0x00, b2: 0x7f }, // Corregido: 7FH activa el segmento central G (bit 3=1)
   { char: '9', b1: 0x00, b2: 0x4f },
   { char: 'A', b1: 0x00, b2: 0x5f },
   { char: 'B', b1: 0x52, b2: 0x66 },
@@ -244,13 +244,33 @@ export function createDisplayEncoderPanel(options: DisplayEncoderOptions = {}): 
   const calculate15Value = (): { b1: number; b2: number; word: number } => {
     let rawB1 = 0;
     let rawB2 = 0;
-    for (const [seg, on] of Object.entries(state15)) {
-      if (on && D15_MASKS[seg]) {
-        const info = D15_MASKS[seg];
-        if (info.byte === 'b1') rawB1 |= (1 << info.bit);
-        else rawB2 |= (1 << info.bit);
-      }
+
+    // Perímetro (Byte 2)
+    if (state15.F) rawB2 |= (1 << 0);
+    if (state15.A) rawB2 |= (1 << 1);
+    if (state15.B) rawB2 |= (1 << 2);
+    if (state15.E) rawB2 |= (1 << 4);
+    if (state15.D) rawB2 |= (1 << 5);
+    if (state15.C) rawB2 |= (1 << 6);
+    if (state15.DP) rawB2 |= (1 << 7);
+
+    // Barra media horizontal (G1 y G2)
+    if (state15.G1 && state15.G2) {
+      // Ambas mitades encendidas -> activa bit 3 de Byte 2 (estándar 7 y 15 segmentos)
+      rawB2 |= (1 << 3);
+    } else {
+      if (state15.G1) rawB1 |= (1 << 3);
+      if (state15.G2) rawB1 |= (1 << 4);
     }
+
+    // Trazos internos y diagonales (Byte 1)
+    if (state15.H) rawB1 |= (1 << 0);
+    if (state15.J) rawB1 |= (1 << 1);
+    if (state15.K) rawB1 |= (1 << 2);
+    if (state15.N) rawB1 |= (1 << 5);
+    if (state15.M) rawB1 |= (1 << 6);
+    if (state15.L) rawB1 |= (1 << 7);
+
     const finalB1 = isAnode ? (~rawB1 & 0xff) : rawB1;
     const finalB2 = isAnode ? (~rawB2 & 0xff) : rawB2;
     const word = (finalB2 << 8) | finalB1;
@@ -384,10 +404,27 @@ export function createDisplayEncoderPanel(options: DisplayEncoderOptions = {}): 
         btn.innerHTML = `<span style="font-weight: bold; color: #79c0ff; font-size: 13px;">${item.char}</span> <span style="font-family: var(--font-mono); color: var(--text-muted); font-size: 10px;">${b1Hex}, ${b2Hex}H</span>`;
         btn.title = `Cargar '${item.char}' (Byte 1: ${b1Hex}H, Byte 2: ${b2Hex}H)`;
         btn.addEventListener('click', () => {
-          for (const [seg, info] of Object.entries(D15_MASKS)) {
-            const byteVal = info.byte === 'b1' ? item.b1 : item.b2;
-            state15[seg] = (byteVal & (1 << info.bit)) !== 0;
-          }
+          const b1 = item.b1;
+          const b2 = item.b2;
+          const g_b2 = (b2 & (1 << 3)) !== 0;
+
+          state15.H = (b1 & (1 << 0)) !== 0;
+          state15.J = (b1 & (1 << 1)) !== 0;
+          state15.K = (b1 & (1 << 2)) !== 0;
+          state15.G1 = (b1 & (1 << 3)) !== 0 || g_b2;
+          state15.G2 = (b1 & (1 << 4)) !== 0 || g_b2;
+          state15.N = (b1 & (1 << 5)) !== 0;
+          state15.M = (b1 & (1 << 6)) !== 0;
+          state15.L = (b1 & (1 << 7)) !== 0;
+
+          state15.F = (b2 & (1 << 0)) !== 0;
+          state15.A = (b2 & (1 << 1)) !== 0;
+          state15.B = (b2 & (1 << 2)) !== 0;
+          state15.E = (b2 & (1 << 4)) !== 0;
+          state15.D = (b2 & (1 << 5)) !== 0;
+          state15.C = (b2 & (1 << 6)) !== 0;
+          state15.DP = (b2 & (1 << 7)) !== 0;
+
           update();
         });
         glyphGrid.appendChild(btn);
