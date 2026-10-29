@@ -128,52 +128,52 @@ export function showUpdateDialog(info: UpdateInfo | null, isManualCheck = false)
     progressSection.style.display = 'block';
 
     try {
-      const buffer = await downloadUpdateBinary(info.downloadUrl, info.assetSize, (percent, status) => {
-        progressBar.style.width = `${percent}%`;
-        percentLabel.textContent = `${percent}%`;
-        statusLabel.textContent = status;
-      });
-
-      statusLabel.textContent = '📦 Aplicando actualización y relanzando...';
-      percentLabel.textContent = '100%';
-
       const winNeu = (window as any).Neutralino;
       if (winNeu && winNeu.os && winNeu.filesystem && winNeu.app) {
         // Entorno Desktop Neutralino WebView2
+        statusLabel.textContent = '📦 Conectando con servidor de actualización...';
+        progressBar.style.width = '30%';
+        percentLabel.textContent = '30%';
+
         const tempEnv = await winNeu.os.getEnv('TEMP').catch(() => 'C:\\Windows\\Temp');
         const timestamp = Date.now();
-        const zipPath = `${tempEnv}\\sim8085_update_${timestamp}.zip`;
         const batPath = `${tempEnv}\\sim8085_updater_${timestamp}.bat`;
         const appDir = (window as any).NL_PATH || '.';
-        const pid = (await winNeu.app.getProcessId().catch(() => (window as any).NL_PID)) || 0;
 
-        // 1. Escribir ZIP binario a disco
-        await winNeu.filesystem.writeBinaryFile(zipPath, buffer);
+        // Obtener PID seguro como número
+        let pid = 0;
+        try {
+          const pidRes = await winNeu.app.getProcessId();
+          pid = typeof pidRes === 'object' && pidRes ? (pidRes.pid || 0) : (Number(pidRes) || 0);
+        } catch {
+          pid = Number((window as any).NL_PID) || 0;
+        }
 
-        // 2. Generar y escribir script por lotes
-        const batCode = generateUpdaterBatch(pid, appDir, zipPath);
+        // 1. Generar y escribir script por lotes autónomo
+        statusLabel.textContent = '⚡ Descargando y preparando reemplazo...';
+        progressBar.style.width = '70%';
+        percentLabel.textContent = '70%';
+
+        const batCode = generateUpdaterBatch(pid, appDir, info.downloadUrl);
         await winNeu.filesystem.writeFile(batPath, batCode);
 
-        // 3. Ejecutar script desacoplado en segundo plano
+        statusLabel.textContent = '🚀 Relanzando simulador actualizado...';
+        progressBar.style.width = '100%';
+        percentLabel.textContent = '100%';
+
+        // 2. Ejecutar script desacoplado en segundo plano
         await winNeu.os.execCommand(`cmd /c start "" /min "${batPath}"`, { background: true });
 
-        // 4. Salir limpiamente de la aplicación para liberar el bloqueo de ejecutables
+        // 3. Salir limpiamente de la aplicación
         setTimeout(async () => {
           await winNeu.app.exit();
         }, 500);
       } else {
-        // Modo navegador web puro: descargar el archivo directamente
-        const blob = new Blob([buffer], { type: 'application/zip' });
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = info.assetName || `Simulador_8085_${info.tagName}_Windows_x64.zip`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
-
-        statusLabel.textContent = '✅ Archivo descargado en tu carpeta de descargas.';
+        // Modo navegador web puro: abrir enlace directo de descarga
+        window.open(info.downloadUrl, '_blank');
+        statusLabel.textContent = '✅ Descarga iniciada en tu navegador.';
+        progressBar.style.width = '100%';
+        percentLabel.textContent = '100%';
         btnLater.disabled = false;
         btnLater.textContent = 'Cerrar';
       }

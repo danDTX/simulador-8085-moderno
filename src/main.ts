@@ -89,17 +89,19 @@ class SimulatorApp {
       try {
         const updateInfo = await checkGitHubRelease();
         if (updateInfo) {
+          // Mostrar directamente la ventana modal para notificar al usuario de forma clara
+          showUpdateDialog(updateInfo, false);
           this.notifyUpdateAvailable(updateInfo);
         }
       } catch (err) {
         // Fallo silencioso en segundo plano sin interrumpir al usuario
       }
-    }, 3500);
+    }, 2500);
   }
 
   private notifyUpdateAvailable(update: UpdateInfo): void {
     if (document.getElementById('taskbar-update-pill')) return;
-    const taskbar = document.getElementById('mdi-taskbar');
+    const taskbar = document.querySelector('.app-taskbar') || document.getElementById('mdi-taskbar-items');
     if (!taskbar) return;
 
     const pill = document.createElement('div');

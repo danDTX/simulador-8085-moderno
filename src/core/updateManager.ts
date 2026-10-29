@@ -94,9 +94,8 @@ export async function checkGitHubRelease(currentVersion = APP_VERSION): Promise<
  * Genera el script por lotes .bat que reemplaza los binarios en Windows
  * liberando el bloqueo de archivo del proceso actual y relanzándolo.
  */
-export function generateUpdaterBatch(oldPid: number, appDir: string, zipPath: string): string {
+export function generateUpdaterBatch(oldPid: number, appDir: string, downloadUrl: string): string {
   const cleanAppDir = appDir.replace(/\//g, '\\').replace(/\\+$/, '');
-  const cleanZipPath = zipPath.replace(/\//g, '\\');
 
   return `@echo off
 setlocal enabledelayedexpansion
@@ -115,12 +114,14 @@ if "${oldPid}" neq "0" (
 )
 timeout /t 1 /nobreak >nul
 
-:: 2. Descomprimir en directorio temporal
-echo [2/4] Descomprimiendo actualizacion...
+:: 2. Descargar y descomprimir en directorio temporal
+echo [2/4] Descargando y descomprimiendo paquete de actualizacion...
+set "ZIP_FILE=%TEMP%\\sim8085_update.zip"
 set "EXTRACT_DIR=%TEMP%\\sim8085_extract_%RANDOM%"
 if exist "!EXTRACT_DIR!" rd /s /q "!EXTRACT_DIR!"
 mkdir "!EXTRACT_DIR!"
-powershell -NoProfile -Command "Expand-Archive -Path '${cleanZipPath}' -DestinationPath '!EXTRACT_DIR!' -Force"
+
+powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '${downloadUrl}' -OutFile '!ZIP_FILE!' -UseBasicParsing; Expand-Archive -Path '!ZIP_FILE!' -DestinationPath '!EXTRACT_DIR!' -Force"
 
 :: 3. Reemplazar archivos en el directorio de la aplicacion preservando sim8085_config.json
 echo [3/4] Instalando archivos nuevos en: ${cleanAppDir}
@@ -141,7 +142,7 @@ for /d %%D in ("!EXTRACT_DIR!\\*") do (
 :: 4. Limpieza de temporales
 echo [4/4] Limpiando temporales y relanzando...
 rd /s /q "!EXTRACT_DIR!" >nul 2>&1
-del /f /q "${cleanZipPath}" >nul 2>&1
+del /f /q "!ZIP_FILE!" >nul 2>&1
 
 :: 5. Relanzar aplicacion actualizada
 cd /d "${cleanAppDir}"

@@ -16,10 +16,11 @@ describe('UpdateManager - Version Comparison & Script Generation', () => {
   });
 
   it('generates Windows updater batch script with proper safety guards', () => {
-    const script = generateUpdaterBatch(12345, 'C:\\Simulador 8085', 'C:\\Temp\\update.zip');
+    const script = generateUpdaterBatch(12345, 'C:\\Simulador 8085', 'https://github.com/danDTX/simulador-8085-moderno/releases/download/v1.9.1/Simulador_8085_v1.9.1_Windows_x64.zip');
     assert.ok(script.includes('PID: 12345'));
     assert.ok(script.includes('taskkill /PID 12345 /F'));
     assert.ok(script.includes('Expand-Archive'));
+    assert.ok(script.includes('Invoke-WebRequest'));
     assert.ok(script.includes('sim8085_config.json')); // Must preserve configuration!
     assert.ok(script.includes('C:\\Simulador 8085'));
     assert.ok(script.includes('Simulador_8085.exe'));
