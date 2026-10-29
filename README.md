@@ -1,4 +1,4 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.9.1)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.9.2)
 
 Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 

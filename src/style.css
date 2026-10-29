@@ -3316,6 +3316,21 @@ body.light-theme .cflag-led.led-on {
   overflow: hidden;
 }
 
+body.light-theme .inst-code-bubble {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+  color: #0969da;
+}
+
+body.light-theme .inst-example-box {
+  background: #f6f8fa;
+  border-color: #d0d7de;
+}
+
+body.light-theme .inst-example-code {
+  color: #24292f;
+}
+
 .inst-example-code {
   padding: 14px 16px;
   margin: 0;

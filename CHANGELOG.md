@@ -4,6 +4,16 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.2] - 2026-10-29
+
+### 🎨 Mejoras Visuales en Diccionario Técnico (Modo Claro)
+- **☀️ Adaptabilidad de Ejemplos en Ensamblador al Tema Claro:**
+  - Se eliminó el bloque negro oscuro (`#0d1117`) de la sección *"Ejemplo Práctico en Ensamblador"* del Diccionario de Instrucciones (F1) en el modo claro.
+  - La caja de código ahora utiliza un fondo gris claro ergonómico (`#f6f8fa`) con borde neutro (`#d0d7de`) y texto oscuro de alto contraste (`#24292f`).
+  - La burbuja de parámetros y operandos válidos se estilizó con fondo suave y acento azul institucional (`#0969da`) para una lectura limpia sin deslumbramiento.
+
+---
+
 ## [1.9.1] - 2026-10-29
 
 ### 🎨 Mejoras Visuales y Modo Claro
