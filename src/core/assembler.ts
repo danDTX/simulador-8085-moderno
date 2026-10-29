@@ -290,6 +290,21 @@ export class Assembler8085 {
       if (labelColonMatch) {
         label = labelColonMatch[1].toUpperCase();
         code = labelColonMatch[2].trim();
+      } else {
+        // Detect labels containing invalid characters (e.g. 'ñ', accents, symbols)
+        const invalidLabelMatch = code.match(/^([^:\s]+):(.*)$/);
+        if (invalidLabelMatch) {
+          const candidate = invalidLabelMatch[1];
+          const nonAscii = candidate.match(/[^\x00-\x7F]/g);
+          if (nonAscii) {
+            const uniqueChars = Array.from(new Set(nonAscii)).join(', ');
+            diagnostics.push({
+              line: lineNum,
+              message: `Carácter no permitido (${uniqueChars}) en la etiqueta '${candidate}'. En ensamblador 8085 solo se admiten letras estándar [A-Z], números [0-9] y guion bajo [_]`,
+              isError: true
+            });
+          }
+        }
       }
 
       const upperCode = code.toUpperCase();
@@ -503,7 +518,17 @@ export class Assembler8085 {
             diagnostics.push({ line: lineNum, message: `La instrucción 'RST' requiere 1 número de vector (0 a 7), pero recibió ${operands.length}`, isError: true });
           }
         } else {
-          diagnostics.push({ line: lineNum, message: `Instrucción desconocida: ${mnemonic}`, isError: true });
+          const nonAscii = mnemonic.match(/[^\x00-\x7F]/g);
+          if (nonAscii) {
+            const uniqueChars = Array.from(new Set(nonAscii)).join(', ');
+            diagnostics.push({
+              line: lineNum,
+              message: `Carácter no permitido (${uniqueChars}) en '${mnemonic}'. En ensamblador 8085 solo se admiten caracteres ASCII estándar [A-Z, 0-9, _]`,
+              isError: true
+            });
+          } else {
+            diagnostics.push({ line: lineNum, message: `Instrucción desconocida: ${mnemonic}`, isError: true });
+          }
         }
       }
 

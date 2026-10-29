@@ -3,6 +3,9 @@ import { Disassembler8085 } from '../../core/disassembler.js';
 import { PeripheralsManager } from '../../core/peripherals.js';
 import { openInterruptsDialog } from './interruptsDialog.js';
 
+const hex2 = (v: number) => (v & 0xff).toString(16).padStart(2, '0').toUpperCase();
+const hex4 = (v: number) => (v & 0xffff).toString(16).padStart(4, '0').toUpperCase();
+
 export function createMainConsolePanel(
   cpu: Intel8085,
   perifs: PeripheralsManager,
@@ -15,7 +18,12 @@ export function createMainConsolePanel(
     onReset: () => void;
     onToggleBreakpoint?: (addr: number) => void;
   }
-): { element: HTMLElement; update: () => void; setRunningState: (running: boolean) => void } {
+): {
+  element: HTMLElement;
+  update: () => void;
+  setRunningState: (running: boolean) => void;
+  refreshInstructions: (codeAddresses?: Set<number>, entryPoint?: number) => void;
+} {
   const panel = document.createElement('div');
   panel.className = 'panel-main-console';
 
@@ -488,6 +496,69 @@ export function createMainConsolePanel(
     }
   });
 
+  // Instructions Table State: Holds full disassembled program
+  let activeCodeAddresses: Set<number> | null = null;
+  let activeEntryPoint: number = 0x0000;
+
+  const refreshInstructions = (codeAddresses?: Set<number>, entryPoint?: number) => {
+    if (codeAddresses !== undefined) activeCodeAddresses = codeAddresses;
+    if (entryPoint !== undefined) activeEntryPoint = entryPoint;
+
+    const tbodyInst = panel.querySelector('#console-inst-tbody');
+    if (!tbodyInst) return;
+
+    let startAddr = activeEntryPoint;
+    let endAddr = activeEntryPoint + 64;
+
+    if (activeCodeAddresses && activeCodeAddresses.size > 0) {
+      let minA = 0xffff;
+      let maxA = 0x0000;
+      for (const a of activeCodeAddresses) {
+        if (a < minA) minA = a;
+        if (a > maxA) maxA = a;
+      }
+      startAddr = Math.min(minA, activeEntryPoint);
+      endAddr = maxA;
+    } else {
+      startAddr = cpu.regs.pc;
+      endAddr = Math.min(0xffff, startAddr + 64);
+    }
+
+    let instHtml = '';
+    let curAddr = startAddr;
+    let count = 0;
+    const maxInstructions = 2500;
+
+    while (count < maxInstructions && curAddr <= 0xffff) {
+      const d = Disassembler8085.disassemble(cpu.memory, curAddr);
+      const isPc = (d.address === cpu.regs.pc);
+      const hasBp = cpu.hasBreakpoint(d.address);
+      const hexCodes = d.bytes.map(b => hex2(b)).join(' ');
+
+      instHtml += `
+        <tr class="${isPc ? 'row-pc-active' : ''} ${hasBp ? 'row-bp-active' : ''}" data-rowaddr="${d.address}">
+          <td class="inst-addr" data-addr="${d.address}" style="cursor: pointer;" title="${hasBp ? 'Punto de interrupción activo (clic para quitar)' : 'Clic para alternar breakpoint'}">${hasBp ? '🔴 ' : ''}${hex4(d.address)}</td>
+          <td class="inst-mnem">${d.text}</td>
+          <td class="inst-code">${hexCodes}</td>
+        </tr>
+      `;
+
+      curAddr = (curAddr + d.size) & 0xffff;
+      count++;
+      if (curAddr > endAddr) {
+        if (d.text.toUpperCase() === 'HLT' || curAddr >= endAddr + 4) {
+          break;
+        }
+      }
+    }
+
+    tbodyInst.innerHTML = instHtml;
+    lastRenderedPc = cpu.regs.pc;
+
+    const activeRow = tbodyInst.querySelector('.row-pc-active');
+    activeRow?.scrollIntoView({ block: 'nearest' });
+  };
+
   const update = () => {
     const hex2 = (v: number) => (v & 0xff).toString(16).padStart(2, '0').toUpperCase();
     const hex4 = (v: number) => (v & 0xffff).toString(16).padStart(4, '0').toUpperCase();
@@ -535,30 +606,21 @@ export function createMainConsolePanel(
     setLed('b1', (psw & 0x02) !== 0);
     setLed('cy', cpu.flags.cy);
 
-    // 3. Instructions Table (Window around PC - Only re-render when PC changes)
+    // 3. Instructions Table (Track active PC row smoothly without destroying full table)
     const tbodyInst = panel.querySelector('#console-inst-tbody');
     if (tbodyInst && lastRenderedPc !== pc) {
-      lastRenderedPc = pc;
-      let instHtml = '';
-      const startAddr = Math.max(0, pc - 4);
-      let curAddr = startAddr;
-      for (let i = 0; i < 18; i++) {
-        if (curAddr >= 0xffff) break;
-        const d = Disassembler8085.disassemble(cpu.memory, curAddr);
-        const isPc = (d.address === pc);
-        const hasBp = cpu.hasBreakpoint(d.address);
-        const hexCodes = d.bytes.map(b => hex2(b)).join(' ');
+      const prevRow = tbodyInst.querySelector('.row-pc-active');
+      if (prevRow) prevRow.classList.remove('row-pc-active');
 
-        instHtml += `
-          <tr class="${isPc ? 'row-pc-active' : ''} ${hasBp ? 'row-bp-active' : ''}">
-            <td class="inst-addr" data-addr="${d.address}" style="cursor: pointer;" title="${hasBp ? 'Punto de interrupción activo (clic para quitar)' : 'Clic para alternar breakpoint'}">${hasBp ? '🔴 ' : ''}${hex4(d.address)}</td>
-            <td class="inst-mnem">${d.text}</td>
-            <td class="inst-code">${hexCodes}</td>
-          </tr>
-        `;
-        curAddr = (curAddr + d.size) & 0xffff;
+      const curRow = tbodyInst.querySelector(`tr[data-rowaddr="${pc}"]`);
+      if (curRow) {
+        curRow.classList.add('row-pc-active');
+        curRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        lastRenderedPc = pc;
+      } else {
+        // PC jumped outside the currently loaded table range, refresh around new PC
+        refreshInstructions();
       }
-      tbodyInst.innerHTML = instHtml;
     }
 
     // 4. Ports Table (Optimized: Direct cell updates without rebuilding 256 DOM elements)
@@ -664,5 +726,6 @@ export function createMainConsolePanel(
     if (stackScroll) stackScroll.scrollTop = Math.max(0, (cpu.regs.sp - 3)) * ROW_HEIGHT;
   }, 0);
   update();
-  return { element: panel, update, setRunningState };
+  refreshInstructions();
+  return { element: panel, update, setRunningState, refreshInstructions };
 }

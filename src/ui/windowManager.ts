@@ -12,6 +12,7 @@ export interface WindowOptions {
   isClosable?: boolean;
   isMinimizable?: boolean;
   isMaximizable?: boolean;
+  isFixed?: boolean;
   onClose?: () => void;
 }
 
@@ -123,17 +124,22 @@ export class MDIWindowManager {
     body.appendChild(opts.content);
     win.appendChild(body);
 
-    // Resize handles
-    const handles = ['se', 'e', 's', 'sw', 'w', 'nw', 'n', 'ne'];
-    handles.forEach(h => {
-      const resizeElem = document.createElement('div');
-      resizeElem.className = `mdi-resizer mdi-resizer-${h}`;
-      win.appendChild(resizeElem);
-      this.initResize(win, resizeElem, h, opts);
-    });
+    // Resize handles (only if window is not fixed)
+    if (!opts.isFixed) {
+      const handles = ['se', 'e', 's', 'sw', 'w', 'nw', 'n', 'ne'];
+      handles.forEach(h => {
+        const resizeElem = document.createElement('div');
+        resizeElem.className = `mdi-resizer mdi-resizer-${h}`;
+        win.appendChild(resizeElem);
+        this.initResize(win, resizeElem, h, opts);
+      });
 
-    // Make Draggable
-    this.initDrag(win, header);
+      // Make Draggable
+      this.initDrag(win, header);
+    } else {
+      win.classList.add('mdi-window-fixed');
+      header.style.cursor = 'default';
+    }
 
     // Bring to front on click
     win.addEventListener('pointerdown', () => this.bringToFront(opts.id));

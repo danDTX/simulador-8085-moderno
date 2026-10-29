@@ -6,6 +6,25 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ## [1.7.1] - 2026-10-29
 
+### 🚀 Nuevas Características y Mejoras de Interfaz (UX/UI)
+- **🖥️ Inicio Siempre Maximizado al Monitor:**
+  - Configuración `"maximize": true` en `neutralino.config.json` y llamada nativa segura `Neutralino.window.maximize()` en arranque. La ventana se expande al 100% del área útil del monitor en cualquier pantalla (laptops, monitores HD, 2K o 4K) sin requerir atajos de teclado (`Win + ↑`).
+- **📐 Layout Fijo 50/50 y Responsividad Completa:**
+  - El Editor ASM (izquierda) y la Consola Central (derecha) ahora operan en un diseño integrado fijo 50% / 50% (`isFixed: true`), eliminando desalineaciones por arrastre accidental.
+  - Adaptabilidad continua a cambios de resolución mediante evento de redimensionado dinámico (`window.addEventListener('resize')`).
+  - **Extensión Vertical de los 4 Paneles Inferiores:** Se eliminó la altura fija de 210px y el espacio negro muerto inferior; los paneles de E/S Serie & Interrupciones, Puertos (00-FF), Memoria de Datos y Pila ahora se estiran responsivamente (`flex: 1`) hasta el borde inferior, mostrando muchas más filas visibles.
+- **📜 Memoria de Instrucciones Completa (Programa Entero sin Límite de 18 Filas):**
+  - Reemplazo del bucle fijo de 18 instrucciones por un desensamblado secuencial integral de todo el código de programa ensamblado (hasta 2.500 instrucciones consecutivas).
+  - El usuario puede desplazarse libremente con la rueda del ratón por todas las líneas del código.
+  - Seguimiento del PC sin destrucción de DOM: cambio instantáneo de la clase `row-pc-active` con desplazamiento automático suave (`scrollIntoView({ block: 'nearest' })`).
+- **✏️ Corrección Definitiva del Desfase en Ajuste de Línea (Word Wrap / Alt+Z):**
+  - Compensación milimétrica del ancho de la barra de desplazamiento vertical en la capa de resaltado (`highlightOverlay.style.paddingRight = 12px + scrollbarWidth`).
+  - Estilización dedicada de `.editor-textarea::selection` con `color: transparent !important;`, eliminando letras superpuestas, mezclas de texto y desfases entre el cursor y el código visualizado.
+- **⚠️ Banner Prominente de Error y Detección Didáctica de `ñ` y Acentos:**
+  - Nuevo banner visual superior con animación de sacudida (*shake*), título claro y mensaje didáctico inmediato.
+  - Detección precisa de caracteres no ASCII en etiquetas y mnemónicos, informando exactamente qué carácter inválido causó el error y recordando la regla histórica de identificadores del 8085 (`[A-Z, 0-9, _]`).
+  - Clic en el banner para saltar directamente a la línea culpable.
+
 ### 🐛 Correcciones de Errores y Confiabilidad (Bug Fixes)
 - **Restauración del Diálogo de Confirmación de Cambios no Guardados:**
   - **Corrección de `isDirty` al Ensamblar (`src/main.ts`):** Al compilar con `F9`, `F5` o `F7`, se eliminó la asignación indebida `this.editor.isDirty = false`. Ensamblar a memoria RAM (`needsAssemble = false`) ya no borra el estado de modificación respecto a disco. El indicador de cambios pendientes (punto amarillo `•`) y la protección de archivo permanecen activos hasta que se guarde explícitamente (`Ctrl+S`).

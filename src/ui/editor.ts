@@ -86,6 +86,16 @@ export class CodeEditor {
           <button id="btn-delay-gen" class="tb-btn" title="Asistente Calculador de Retardos">⏱️ Retardo</button>
           <span id="editor-filename" class="editor-filename-badge" title="Archivo activo">📄 sin_titulo.asm</span>
         </div>
+        <div id="editor-error-banner" class="editor-error-banner" style="display: none;">
+          <div class="error-banner-content" id="error-banner-jump-target" style="cursor: pointer;" title="Haz clic para ir directamente a la línea del error">
+            <span class="error-banner-icon">⚠️</span>
+            <div class="error-banner-text">
+              <strong id="error-banner-title">Error de Ensamblado</strong>
+              <span id="error-banner-msg">Descripción del error...</span>
+            </div>
+          </div>
+          <button id="error-banner-close" class="error-banner-close" title="Cerrar aviso">✕</button>
+        </div>
         <div class="editor-container">
           <div class="editor-gutters">
             <div class="editor-line-numbers" id="editor-line-numbers"></div>
@@ -125,6 +135,16 @@ export class CodeEditor {
       if (this.currentErrorLine && this.currentErrorLine > 0) {
         this.goToLine(this.currentErrorLine - 1);
       }
+    });
+
+    this.container.querySelector('#error-banner-jump-target')?.addEventListener('click', () => {
+      if (this.currentErrorLine && this.currentErrorLine > 0) {
+        this.goToLine(this.currentErrorLine - 1);
+      }
+    });
+
+    this.container.querySelector('#error-banner-close')?.addEventListener('click', () => {
+      this.hideErrorBanner();
     });
 
     // ResizeObserver for dynamic word wrap recalculations
@@ -283,6 +303,7 @@ export class CodeEditor {
     });
 
     this.textarea.addEventListener('input', () => {
+      this.hideErrorBanner();
       this.isDirty = true;
       this.needsAssemble = true;
       this.currentErrorLine = null;
@@ -1017,6 +1038,11 @@ export class CodeEditor {
     this.highlightOverlay.scrollTop = this.textarea.scrollTop;
     if (!this.isWordWrap) {
       this.highlightOverlay.scrollLeft = this.textarea.scrollLeft;
+      this.highlightOverlay.style.paddingRight = '12px';
+    } else {
+      // Synchronize exact visible width between textarea and highlight overlay
+      const scrollbarWidth = this.textarea.offsetWidth - this.textarea.clientWidth;
+      this.highlightOverlay.style.paddingRight = `${12 + scrollbarWidth}px`;
     }
     this.lineNumbers.scrollTop = this.textarea.scrollTop;
   }
@@ -1247,6 +1273,12 @@ export class CodeEditor {
       this.errorBadge.style.cursor = 'default';
     }
 
+    if (isError) {
+      this.showErrorBanner(this.currentErrorLine ?? undefined, msg);
+    } else {
+      this.hideErrorBanner();
+    }
+
     // Volver a 'Listo' tras 3 segundos para mensajes de éxito
     if (!isError && !isWarning && msg !== 'Listo' && !msg.startsWith('✏️')) {
       this.statusResetTimer = setTimeout(() => {
@@ -1259,6 +1291,29 @@ export class CodeEditor {
         }
       }, 3000);
     }
+  }
+
+  public showErrorBanner(line: number | undefined, message: string): void {
+    const banner = this.container.querySelector('#editor-error-banner') as HTMLElement;
+    const titleEl = this.container.querySelector('#error-banner-title') as HTMLElement;
+    const msgEl = this.container.querySelector('#error-banner-msg') as HTMLElement;
+    if (!banner || !titleEl || !msgEl) return;
+
+    titleEl.textContent = line ? `⚠️ Error de Ensamblado en Línea ${line}` : `⚠️ Error de Ensamblado`;
+    msgEl.textContent = message;
+    banner.style.display = 'flex';
+    banner.classList.remove('shake-anim');
+    void banner.offsetWidth; // Trigger CSS reflow for shake animation
+    banner.classList.add('shake-anim');
+
+    if (line !== undefined && line > 0) {
+      this.goToLine(line - 1);
+    }
+  }
+
+  public hideErrorBanner(): void {
+    const banner = this.container.querySelector('#editor-error-banner') as HTMLElement;
+    if (banner) banner.style.display = 'none';
   }
 
   public setExecutionLine(lineNum: number): void {

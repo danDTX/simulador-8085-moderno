@@ -69,6 +69,13 @@ assertSuccess('.ORG 0100H\nPUSH PSW\nPUSH B\nPOP D\n', 'PUSH PSW, PUSH B, POP D'
 assertError('.ORG 0100H\nRST 9\n', 'RST with vector 9', 'Vector de RST no válido');
 assertSuccess('.ORG 0100H\nRST 5\nRST 1\n', 'RST with vectors 5 and 1');
 
+// 9. Non-ASCII characters in labels and instructions (e.g. 'ñ', accents)
+assertError('.ORG 0100H\nAÑO:\nINR A\nHLT', 'Label with letter ñ (AÑO:)', 'Carácter no permitido');
+assertError('.ORG 0100H\nPEQUEÑO:\nINR A\nHLT', 'Label with letter ñ (PEQUEÑO:)', 'Carácter no permitido');
+assertError('.ORG 0100H\nDISEÑO:\nINR A\nHLT', 'Label with letter ñ (DISEÑO:)', 'Carácter no permitido');
+assertError('.ORG 0100H\nSUBRUTÍNA:\nRET', 'Label with accent (SUBRUTÍNA:)', 'Carácter no permitido');
+assertSuccess('.ORG 0100H\nANIO:\nINR A\nHLT', 'ASCII equivalent label (ANIO:)');
+
 console.log('===============================================================');
 console.log('ALL PARAMETER VALIDATION TESTS PASSED (100% CLEAN)!');
 console.log('===============================================================');

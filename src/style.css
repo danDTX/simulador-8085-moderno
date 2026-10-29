@@ -265,6 +265,17 @@ html, body {
   border: none;
 }
 
+.mdi-window.mdi-window-fixed {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.mdi-window.mdi-window-fixed .mdi-header {
+  cursor: default !important;
+  user-select: none;
+}
+
 .mdi-header {
   display: flex;
   align-items: center;
@@ -584,6 +595,91 @@ body.light-theme .tab-add-btn:hover {
   margin-left: auto;
 }
 
+/* Banner Prominente de Error en Editor */
+.editor-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, #b91c1c, #991b1b);
+  color: #ffffff;
+  padding: 8px 14px;
+  border-bottom: 2px solid #ef4444;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  font-size: 13px;
+  z-index: 20;
+  flex-shrink: 0;
+  animation: slideDownError 0.2s ease;
+}
+
+.editor-error-banner.shake-anim {
+  animation: shakeError 0.35s ease;
+}
+
+@keyframes slideDownError {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.error-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.error-banner-icon {
+  font-size: 18px;
+}
+
+.error-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.error-banner-text strong {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fecaca;
+}
+
+.error-banner-text span {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #ffffff;
+}
+
+.error-banner-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  opacity: 0.8;
+  transition: opacity 0.1s;
+}
+
+.error-banner-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+body.light-theme .editor-error-banner {
+  background: linear-gradient(90deg, #dc2626, #b91c1c);
+  color: #ffffff;
+}
+
 /* Status Bar inferior al estilo VS Code (Ancho Completo y No Invasiva) */
 .editor-statusbar {
   display: flex;
@@ -751,6 +847,11 @@ body.light-theme .tab-add-btn:hover {
   overflow: auto;
 }
 
+.editor-textarea::selection {
+  background: rgba(88, 166, 255, 0.42) !important;
+  color: transparent !important;
+}
+
 .editor-highlight {
   background: transparent;
   color: var(--text-main);
@@ -768,6 +869,8 @@ body.light-theme .tab-add-btn:hover {
   font-size: var(--editor-font-size, 13px);
   white-space: pre;
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 .code-line-pc {
@@ -781,6 +884,7 @@ body.light-theme .tab-add-btn:hover {
   white-space: pre-wrap !important;
   word-break: break-word !important;
   word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
   overflow-x: hidden !important;
 }
 
@@ -788,9 +892,13 @@ body.light-theme .tab-add-btn:hover {
   white-space: pre-wrap !important;
   word-break: break-word !important;
   word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
   height: auto !important;
   max-height: none !important;
   min-height: var(--editor-line-height, 20px) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
 }
 
 .editor-wrapper.word-wrap .line-number {
@@ -1562,15 +1670,20 @@ body.light-theme .tab-add-btn:hover {
   padding: 10px;
   background: var(--bg-window);
   height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .console-main-layout {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .console-top-area {
@@ -1836,18 +1949,20 @@ body.light-theme .tab-add-btn:hover {
   border-color: #55ff55;
 }
 
-/* Bottom Tables: Responsive 4 columns */
+/* Bottom Tables: Responsive 4 columns extending to bottom */
 .console-bottom-area {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   width: 100%;
-  margin-top: 6px;
+  margin-top: 4px;
+  flex: 1;
+  min-height: 0;
 }
 
 .console-bottom-box {
-  min-height: 200px;
-  height: 210px;
+  min-height: 140px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;

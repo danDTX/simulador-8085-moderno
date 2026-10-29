@@ -58,6 +58,9 @@ class SimulatorApp {
     if (winNeu && typeof winNeu.init === 'function') {
       try {
         winNeu.init();
+        if (winNeu.window && typeof winNeu.window.maximize === 'function') {
+          winNeu.window.maximize().catch(() => {});
+        }
       } catch (e) {
         console.warn('Neutralino.init error:', e);
       }
@@ -115,19 +118,6 @@ class SimulatorApp {
   }
 
   private initUI(): void {
-    const desktopEl = document.getElementById('mdi-desktop');
-    const availableW = desktopEl && desktopEl.clientWidth > 0 ? desktopEl.clientWidth : window.innerWidth;
-    const availableH = desktopEl && desktopEl.clientHeight > 0 ? desktopEl.clientHeight : window.innerHeight - 80;
-
-    const gap = 8;
-    const windowH = Math.max(580, availableH - (gap * 2));
-
-    // Editor on the left takes ~46% of desktop width
-    const editorW = Math.max(480, Math.floor((availableW - (gap * 3)) * 0.46));
-    // Main Console on the right takes the remaining width
-    const consoleX = gap + editorW + gap;
-    const consoleW = Math.max(740, availableW - consoleX - gap);
-
     // 1. EDITOR ASM (Left Window - Replica exacta de Imagen 1)
     const editorContainer = document.createElement('div');
     editorContainer.style.width = '100%';
@@ -162,14 +152,11 @@ class SimulatorApp {
       id: 'editor',
       title: 'Editor ASM - [sin_titulo.asm] (F9 Ensamblar)',
       icon: '📝',
-      x: gap,
-      y: gap,
-      width: editorW,
-      height: windowH,
-      minWidth: 420,
-      minHeight: 400,
       content: editorContainer,
-      isClosable: false
+      isClosable: false,
+      isMinimizable: false,
+      isMaximizable: false,
+      isFixed: true
     });
 
     // 2. CONSOLA PRINCIPAL DE LA CPU (Right Window - Replica exacta de Imagen 1)
@@ -187,17 +174,45 @@ class SimulatorApp {
       id: 'main-console',
       title: 'Simulador de 8085 (Consola Central de la CPU)',
       icon: '⚡',
-      x: consoleX,
-      y: gap,
-      width: consoleW,
-      height: windowH,
-      minWidth: 740,
-      minHeight: 520,
       content: this.mainConsole.element,
-      isClosable: false
+      isClosable: false,
+      isMinimizable: false,
+      isMaximizable: false,
+      isFixed: true
     });
 
-    this.winManager.bringToFront('main-console');
+    this.layoutTiledDesktop();
+    window.addEventListener('resize', () => this.layoutTiledDesktop());
+  }
+
+  public layoutTiledDesktop(): void {
+    const desktopEl = document.getElementById('mdi-desktop');
+    if (!desktopEl) return;
+    const availableW = desktopEl.clientWidth;
+    const availableH = desktopEl.clientHeight;
+    if (availableW <= 0 || availableH <= 0) return;
+
+    const gap = 8;
+    const halfW = Math.max(380, Math.floor((availableW - (gap * 3)) / 2));
+    const winH = Math.max(400, availableH - (gap * 2));
+
+    const editorWin = document.getElementById('mdi-win-editor');
+    if (editorWin) {
+      editorWin.style.left = `${gap}px`;
+      editorWin.style.top = `${gap}px`;
+      editorWin.style.width = `${halfW}px`;
+      editorWin.style.height = `${winH}px`;
+    }
+
+    const consoleWin = document.getElementById('mdi-win-main-console');
+    if (consoleWin) {
+      const consoleX = gap + halfW + gap;
+      const consoleW = Math.max(480, availableW - consoleX - gap);
+      consoleWin.style.left = `${consoleX}px`;
+      consoleWin.style.top = `${gap}px`;
+      consoleWin.style.width = `${consoleW}px`;
+      consoleWin.style.height = `${winH}px`;
+    }
   }
 
   public openTerminalWindow(): void {
@@ -543,6 +558,9 @@ class SimulatorApp {
     this.cpu.memory.set(result.memory);
     this.cpu.regs.pc = result.entryPoint;
     this.cpu.halted = false;
+
+    // Load full disassembled instruction list in the CPU console table
+    this.mainConsole.refreshInstructions(result.codeAddresses, result.entryPoint);
 
     this.editor.needsAssemble = false;
     const byteCount = result.codeAddresses.size;
