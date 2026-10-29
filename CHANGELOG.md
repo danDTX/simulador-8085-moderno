@@ -4,7 +4,7 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
-## [1.7.1] - 2026-10-29
+## [1.8.0] - 2026-10-29
 
 ### 🚀 Nuevas Características y Mejoras de Interfaz (UX/UI)
 - **↔️ Divisor Interactivo Deslizable (Draggable Splitter) con Memoria:**
