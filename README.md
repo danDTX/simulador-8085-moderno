@@ -1,10 +1,14 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.8.0)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.9.0)
 
 Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 
 ---
 
 ## 🚀 Características Principales
+
+- **🔄 Motor de Auto-Actualización Transparente (v1.9.0):**
+  - **Sincronización Automática con GitHub Releases:** Detección en segundo plano de nuevas versiones publicadas en el repositorio oficial ([danDTX/simulador-8085-moderno](https://github.com/danDTX/simulador-8085-moderno)) y búsqueda manual en `Ayuda -> Buscar Actualizaciones...`.
+  - **Actualización y Reinicio en 1 Clic:** Descarga con barra de progreso en tiempo real y script de relevo seguro (`updater.bat`) que resuelve bloqueos de archivos en Windows, preserva la configuración del alumno (`sim8085_config.json`) y relanza la nueva versión de forma instantánea.
 
 - **🎛️ Espacio de Trabajo Responsivo y Divisor Deslizante (v1.8.0):**
   - **Divisor Interactivo con Snap 50/50:** Barra divisoria horizontal fluida entre el Editor ASM y la Consola CPU con arrastre suave, límites seguros (mínimo 320px/460px), restablecimiento instantáneo a 50/50 mediante doble clic y persistencia automática en `sim8085_config.json`.

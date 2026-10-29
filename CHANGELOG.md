@@ -4,6 +4,18 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.0] - 2026-10-29
+
+### 🚀 Nuevas Características (Auto-Actualizador y Ecosistema de Distribución)
+- **🔄 Motor de Auto-Actualización 100% Automático con Reinicio Seguro:**
+  - **Detección Dual:** Comprobación silenciosa en segundo plano al iniciar (3.5s tras el arranque) y comprobación manual instantánea desde el nuevo elemento de menú `Ayuda -> 🔄 Buscar Actualizaciones...`.
+  - **Integración con GitHub Releases API:** Consulta en tiempo real al endpoint público oficial `api.github.com/repos/danDTX/simulador-8085-moderno/releases/latest`.
+  - **Insignia Visual Pulsante en Taskbar:** Si existe una versión más reciente, aparece un botón animado `[🚀 ¡Actualización vX.X.X!]` en la barra inferior para acceder al diálogo sin interrumpir el trabajo actual.
+  - **Descarga con Barra de Progreso en Vivo:** Diálogo modal informativo con visualización de notas de la versión, cálculo de porcentaje y velocidad de transferencia en megabytes (`MB recibidos / MB totales`).
+  - **Proceso de Relevo Transparente (`updater.bat`):** Script temporal que resuelve el bloqueo de archivos en ejecución de Windows (`EBUSY / File Lock`), espera la terminación limpia del proceso, descomprime los binarios con PowerShell (`Expand-Archive`), **preserva fielmente la configuración del usuario (`sim8085_config.json`)** y relanza automáticamente el simulador actualizado antes de autodestruirse.
+
+---
+
 ## [1.8.0] - 2026-10-29
 
 ### 🚀 Nuevas Características y Mejoras de Interfaz (UX/UI)
