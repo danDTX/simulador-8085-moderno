@@ -4,6 +4,17 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.1] - 2026-10-29
+
+### 🎨 Mejoras Visuales y Modo Claro
+- **☀️ Adaptabilidad Completa del Rack de Registros de CPU al Modo Claro:**
+  - Se eliminó el fondo negro sólido (`#000000` / `#0a0000`) del panel de registros en el tema claro, reemplazándolo por una tarjeta integrada (`#ffffff`) con rack suave (`#f6f8fa`) y bordes claros acordes a la paleta institucional.
+  - Los dígitos LED se presentan en rojo oscuro de alto contraste (`#cf222e`) sin halos de deslumbramiento, mejorando la ergonomía visual y reduciendo la fatiga ocular.
+  - Indicadores SP en verde hoja (`#1a7f37`), PC en azul institucional (`#0969da`), escala de bits en gris legible (`#57606a`) y botón Reset adaptado al tema claro.
+  - Bits de Estado (Flags LEDs) con soporte nativo de modo claro (LEDs apagados en tono neutro claro y encendidos en verde nítido).
+
+---
+
 ## [1.9.0] - 2026-10-29
 
 ### 🚀 Nuevas Características (Auto-Actualizador y Ecosistema de Distribución)
