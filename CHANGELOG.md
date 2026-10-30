@@ -4,6 +4,20 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.3] - 2026-10-30
+
+### 🎨 Modo Claro en Tarjetas Flotantes (Hover Tooltip, Autocompletado y Resaltado)
+- **☀️ Adaptabilidad de la Tarjeta Flotante Informativa (Hover Tooltip):**
+  - Se adaptó por completo la tarjeta flotante de ayuda contextual que aparece al pasar el cursor sobre instrucciones y registros en el editor cuando el Modo Claro está activo.
+  - La tarjeta ahora luce un fondo blanco nítido (`#ffffff`) con bordes suaves (`#d0d7de`), sombra difusa ergonómica y tipografía en gris oscuro de alto contraste (`#24292f`).
+  - La cabecera, mnemónico y parámetros destacados utilizan el azul institucional (`#0969da`), la insignia de grupo presenta un chip azul suave y el recuadro de ejemplo técnico muestra el código ensamblador en verde bosque legible (`#1a7f37`) sobre fondo gris suave (`#f6f8fa`).
+- **☀️ Menú Desplegable de Autocompletado:**
+  - Adaptación completa del dropdown de autocompletado en el editor al Modo Claro con fondo blanco, bordes limpios y selección con acento azul.
+- **☀️ Resaltado de Sintaxis Optimizado para Tema Claro:**
+  - Reglas de color con contraste WCAG AAA para mnemónicos, directivas, registros, números y comentarios sobre fondo blanco.
+
+---
+
 ## [1.9.2] - 2026-10-29
 
 ### 🎨 Mejoras Visuales en Diccionario Técnico (Modo Claro)

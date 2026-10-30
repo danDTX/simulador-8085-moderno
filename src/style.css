@@ -3444,5 +3444,109 @@ body.light-theme .trace-table-panel {
   --trace-btn-copy-color: #0969da;
 }
 
+/* ==========================================================================
+   EDITOR HOVER TOOLTIP, AUTOCOMPLETE & SYNTAX HIGHLIGHTING (Light Theme)
+   ========================================================================== */
+body.light-theme .editor-hover-tooltip {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.28);
+  color: var(--text-main);
+}
+
+body.light-theme .editor-hover-tooltip::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+body.light-theme .hover-card-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+body.light-theme .hover-card-sig {
+  color: var(--accent);
+}
+
+body.light-theme .hover-card-badge {
+  background: rgba(9, 105, 218, 0.08);
+  color: var(--accent);
+  border: 1px solid rgba(9, 105, 218, 0.2);
+}
+
+body.light-theme .hover-card-summary {
+  color: var(--text-main);
+}
+
+body.light-theme .hover-card-detail {
+  color: var(--text-muted);
+}
+
+body.light-theme .hover-card-grid {
+  background: #f6f8fa;
+  border: 1px solid var(--border-color);
+}
+
+body.light-theme .hover-card-row strong {
+  color: var(--text-muted);
+}
+
+body.light-theme .hover-card-row span {
+  color: var(--accent);
+}
+
+body.light-theme .hover-card-example {
+  background: #f6f8fa;
+  border: 1px solid var(--border-color);
+}
+
+body.light-theme .hover-ex-lbl {
+  color: var(--text-muted);
+}
+
+body.light-theme .hover-card-example pre {
+  color: #1a7f37;
+}
+
+body.light-theme .editor-autocomplete-dropdown {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.28);
+}
+
+body.light-theme .ac-item {
+  color: var(--text-main);
+}
+
+body.light-theme .ac-item:hover,
+body.light-theme .ac-item.ac-selected {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+body.light-theme .ac-label {
+  color: var(--accent);
+}
+
+body.light-theme .ac-item.ac-selected .ac-label {
+  color: #ffffff;
+}
+
+body.light-theme .ac-detail {
+  color: var(--text-muted);
+}
+
+body.light-theme .ac-item.ac-selected .ac-detail {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Syntax Highlighting for Light Theme */
+body.light-theme .syn-directive { color: #d73a49; font-weight: bold; }
+body.light-theme .syn-mnemonic { color: #0550ae; font-weight: bold; }
+body.light-theme .syn-register { color: #b05a00; }
+body.light-theme .syn-number { color: #0969da; }
+body.light-theme .syn-label { color: #8250df; font-weight: bold; }
+body.light-theme .syn-comment { color: #6e7781; font-style: italic; }
+body.light-theme .syn-string { color: #0a3069; }
+
+
 
 
