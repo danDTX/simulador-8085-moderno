@@ -4,6 +4,20 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.5] - 2026-10-30
+
+### 🎯 Resaltado y Tarjetas Flotantes en Llamadas y Saltos (`CALL`, `JMP`, `Jxx`, `Cxx`, `LXI`)
+- **🟣 Resaltado Inteligente de Etiquetas Referenciadas:**
+  - Las etiquetas utilizadas como operandos tras instrucciones de salto o llamada (`CALL BORRAR_PANTALLA`, `JMP INICIO`, `JNZ BUCLE`, `LXI H, TABLA`, etc.) ahora se colorean con la paleta distintiva de etiquetas (`syn-label`, púrpura `#8250df` en modo claro y `#b392f0` en modo oscuro).
+  - Cuentan con un sutil subrayado punteado que se vuelve sólido al pasar el cursor, señalizando claramente que se trata de un enlace interactivo hacia una subrutina o destino.
+- **📍 Tarjeta Flotante Interactiva en Puntos de Llamada:**
+  - Al posicionar el cursor sobre la etiqueta que acompaña a un `CALL` o `JMP`, se despliega de inmediato la tarjeta informativa indicando la línea exacta donde está definida y recordando los atajos: `(Presiona F12 o Ctrl + Clic para saltar • Alt + ← para volver)`.
+  - Si una etiqueta referenciada aún no ha sido declarada en el código, el hover despliega una tarjeta de advertencia preventiva: `⚠️ La etiqueta aún no está declarada en este documento`.
+- **🔤 Búsqueda y Navegación Case-Insensitive:**
+  - Resolución tolerante a mayúsculas y minúsculas tanto en el hover como en el salto `F12` / `Ctrl + Clic`.
+
+---
+
 ## [1.9.4] - 2026-10-30
 
 ### 🚀 Navegación Bidireccional en el Editor (Historial de Saltos a Definición)

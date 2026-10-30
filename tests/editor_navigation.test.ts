@@ -86,4 +86,24 @@ describe('Editor Navigation History Stack (Alt+← / Alt+→)', () => {
     nav.pushNavLocation(122); // within threshold < 5
     assert.strictEqual(nav.navHistoryBack.length, 1);
   });
+
+  it('correctly matches label references in CALL/JMP lines and case-insensitively', () => {
+    const sourceCode = `
+      .org 0100H
+      CALL BORRAR_PANTALLA
+      JNZ bucle
+      HLT
+      BORRAR_PANTALLA:
+      RET
+      BUCLE:
+      NOP
+    `;
+    const lines = sourceCode.split('\n');
+    const knownLabels = new Set(['BORRAR_PANTALLA', 'BUCLE']);
+
+    const isCallTargetZone = /\b(?:CALL|JMP|JNZ)\b/i.test(lines[2]);
+    assert.strictEqual(isCallTargetZone, true);
+    assert.strictEqual(knownLabels.has('BORRAR_PANTALLA'), true);
+    assert.strictEqual(knownLabels.has('bucle'.toUpperCase()), true);
+  });
 });

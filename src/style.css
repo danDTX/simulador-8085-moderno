@@ -979,6 +979,21 @@ body.light-theme .editor-error-banner {
 .syn-register { color: #ffab70; }
 .syn-number { color: #79c0ff; }
 .syn-label { color: #b392f0; font-weight: bold; }
+.syn-label-ref {
+  font-weight: 600;
+  text-decoration: underline dotted rgba(179, 146, 240, 0.45);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.syn-label-ref:hover {
+  text-decoration: underline solid #b392f0;
+}
+.syn-label-unresolved {
+  color: #e3b341;
+  font-weight: 600;
+  text-decoration: underline wavy rgba(248, 81, 73, 0.5);
+  text-underline-offset: 3px;
+}
 .syn-comment { color: #6a737d; font-style: italic; }
 .syn-string { color: #9ecbff; }
 
@@ -3544,6 +3559,17 @@ body.light-theme .syn-mnemonic { color: #0550ae; font-weight: bold; }
 body.light-theme .syn-register { color: #b05a00; }
 body.light-theme .syn-number { color: #0969da; }
 body.light-theme .syn-label { color: #8250df; font-weight: bold; }
+body.light-theme .syn-label-ref {
+  color: #8250df;
+  text-decoration: underline dotted rgba(130, 80, 223, 0.45);
+}
+body.light-theme .syn-label-ref:hover {
+  text-decoration: underline solid #8250df;
+}
+body.light-theme .syn-label-unresolved {
+  color: #b05a00;
+  text-decoration: underline wavy rgba(207, 34, 46, 0.5);
+}
 body.light-theme .syn-comment { color: #6e7781; font-style: italic; }
 body.light-theme .syn-string { color: #0a3069; }
 

@@ -535,11 +535,22 @@ export class CodeEditor {
     if (!word) return;
 
     const labels = DocsHelper.scanLabels(text);
-    if (labels.has(word)) {
-      const info = labels.get(word)!;
+    let info = labels.get(word);
+    let actualName = word;
+    if (!info) {
+      for (const [name, item] of labels.entries()) {
+        if (name.toUpperCase() === word.toUpperCase()) {
+          info = item;
+          actualName = name;
+          break;
+        }
+      }
+    }
+
+    if (info) {
       this.pushNavLocation();
       this.goToLine(info.line);
-      this.setStatus(`📍 Saltó a la definición de '${word}' (Línea ${info.line + 1}) • Pulsa Alt+← para volver`);
+      this.setStatus(`📍 Saltó a la definición de '${actualName}' (Línea ${info.line + 1}) • Pulsa Alt+← para volver`);
     } else {
       this.setStatus(`No se encontró la definición de la etiqueta '${word}'`, true);
     }
@@ -731,12 +742,34 @@ export class CodeEditor {
       }
     }
 
-    // 4. Etiqueta / Subrutina existente en el documento
+    // 4. Etiqueta / Subrutina existente o referenciada en el documento
     if (!contentHtml) {
       const labels = DocsHelper.scanLabels(this.textarea.value);
-      if (labels.has(token)) {
-        const info = labels.get(token)!;
-        contentHtml = DocsHelper.renderLabelHoverHtml(token, info.line);
+      let targetInfo = labels.get(token);
+      let actualName = token;
+      if (!targetInfo) {
+        for (const [name, info] of labels.entries()) {
+          if (name.toUpperCase() === token.toUpperCase()) {
+            targetInfo = info;
+            actualName = name;
+            break;
+          }
+        }
+      }
+      if (targetInfo) {
+        contentHtml = DocsHelper.renderLabelHoverHtml(actualName, targetInfo.line);
+      } else if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(token) && !DocsHelper.getInstruction(upper) && !DocsHelper.getRegister(upper)) {
+        contentHtml = `
+          <div class="hover-card">
+            <div class="hover-card-header">
+              <span class="hover-card-sig">Etiqueta: ${token}</span>
+              <span class="hover-card-badge" style="color: #f85149; background: rgba(248, 81, 73, 0.1);">No Definida</span>
+            </div>
+            <div class="hover-card-summary" style="margin-top: 6px;">
+              ⚠️ La etiqueta <strong>${token}</strong> aún no está declarada en este documento.
+            </div>
+          </div>
+        `;
       }
     }
 
@@ -1485,11 +1518,18 @@ export class CodeEditor {
     }
     this.lineNumbers.innerHTML = gutterHtml;
 
+    // Pre-escanear etiquetas de todo el documento para colorear llamadas y saltos
+    const declaredLabels = DocsHelper.scanLabels(text);
+    const knownLabels = new Set<string>();
+    for (const lbl of declaredLabels.keys()) {
+      knownLabels.add(lbl.toUpperCase());
+    }
+
     // Syntax Highlighted HTML
     let highlighted = '';
     for (let i = 0; i < lines.length; i++) {
       const isPc = (i + 1 === this.pcLine);
-      const highlightedLine = this.highlightLine(lines[i]);
+      const highlightedLine = this.highlightLine(lines[i], knownLabels);
       highlighted += `<div class="code-line ${isPc ? 'code-line-pc' : ''}">${highlightedLine || '&nbsp;'}</div>`;
     }
     this.highlightOverlay.innerHTML = highlighted;
@@ -1567,30 +1607,40 @@ export class CodeEditor {
     }
   }
 
-  private highlightLine(line: string): string {
+  private highlightLine(line: string, knownLabels?: Set<string>): string {
     const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const commentIdx = line.indexOf(';');
     if (commentIdx !== -1) {
       const codePart = line.substring(0, commentIdx);
       const commentPart = line.substring(commentIdx);
-      return this.highlightTokens(codePart) + `<span class="syn-comment">${escape(commentPart)}</span>`;
+      return this.highlightTokens(codePart, knownLabels) + `<span class="syn-comment">${escape(commentPart)}</span>`;
     }
 
-    return this.highlightTokens(line);
+    return this.highlightTokens(line, knownLabels);
   }
 
-  private highlightTokens(code: string): string {
+  private highlightTokens(code: string, knownLabels?: Set<string>): string {
     const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    return escape(code).replace(/(\.org|\.data|\.define|\bdb\b|\bdw\b|\bds\b)|(\b[A-Za-z0-9_]+:)|(\b(?:MOV|MVI|LXI|LDA|STA|LHLD|SHLD|LDAX|STAX|XCHG|ADD|ADI|ADC|ACI|SUB|SUI|SBB|SBI|INR|DCR|INX|DCX|DAD|DAA|ANA|ANI|XRA|XRI|ORA|ORI|CMP|CPI|RLC|RRC|RAL|RAR|CMA|CMC|STC|JMP|JNZ|JZ|JNC|JC|JPO|JPE|JP|JM|CALL|CNZ|CZ|CNC|CC|CPO|CPE|CP|CM|RET|RNZ|RZ|RNC|RC|RPO|RPE|RP|RM|RST|PUSH|POP|XTHL|SPHL|PCHL|IN|OUT|EI|DI|HLT|NOP|RIM|SIM)\b)|(\b(?:A|B|C|D|E|H|L|M|SP|PSW|BC|DE|HL)\b)|(\b[0-9]+[bB]\b|\b[0-9a-fA-F]+[hH]\b|\b0x[0-9a-fA-F]+\b|\b[0-9]+[dD]?\b)|(".*?"|'.*?')/gi,
-      (match, directive, label, mnemonic, register, number, string) => {
+    const isTargetZone = /\b(?:CALL|CC|CNC|CZ|CNZ|CM|CP|CPE|CPO|JMP|JC|JNC|JZ|JNZ|JM|JP|JPE|JPO|LDA|STA|LHLD|SHLD|LXI)\b/i.test(code);
+
+    return escape(code).replace(/(\.org|\.data|\.define|\bdb\b|\bdw\b|\bds\b)|(\b[A-Za-z0-9_]+:)|(\b(?:MOV|MVI|LXI|LDA|STA|LHLD|SHLD|LDAX|STAX|XCHG|ADD|ADI|ADC|ACI|SUB|SUI|SBB|SBI|INR|DCR|INX|DCX|DAD|DAA|ANA|ANI|XRA|XRI|ORA|ORI|CMP|CPI|RLC|RRC|RAL|RAR|CMA|CMC|STC|JMP|JNZ|JZ|JNC|JC|JPO|JPE|JP|JM|CALL|CNZ|CZ|CNC|CC|CPO|CPE|CP|CM|RET|RNZ|RZ|RNC|RC|RPO|RPE|RP|RM|RST|PUSH|POP|XTHL|SPHL|PCHL|IN|OUT|EI|DI|HLT|NOP|RIM|SIM)\b)|(\b(?:A|B|C|D|E|H|L|M|SP|PSW|BC|DE|HL)\b)|(\b[0-9]+[bB]\b|\b[0-9a-fA-F]+[hH]\b|\b0x[0-9a-fA-F]+\b|\b[0-9]+[dD]?\b)|(".*?"|'.*?')|(\b[A-Za-z_][A-Za-z0-9_]*\b)/gi,
+      (match, directive, labelDef, mnemonic, register, number, string, identifier) => {
         if (directive) return `<span class="syn-directive" data-token="${match}" data-tokentype="directive">${match}</span>`;
-        if (label) return `<span class="syn-label">${match}</span>`;
+        if (labelDef) return `<span class="syn-label" data-token="${match.replace(/:$/, '')}" data-tokentype="label">${match}</span>`;
         if (mnemonic) return `<span class="syn-mnemonic" data-token="${match}" data-tokentype="mnemonic">${match}</span>`;
         if (register) return `<span class="syn-register" data-token="${match}" data-tokentype="register">${match}</span>`;
         if (number) return `<span class="syn-number" data-token="${match}" data-tokentype="number">${match}</span>`;
         if (string) return `<span class="syn-string">${match}</span>`;
+        if (identifier) {
+          const isDeclared = Boolean(knownLabels && knownLabels.has(identifier.toUpperCase()));
+          if (isDeclared || isTargetZone) {
+            const extraCls = isDeclared ? 'syn-label-ref' : 'syn-label-unresolved';
+            const tip = isDeclared ? 'Presiona Ctrl+Clic o F12 para ir a la definición' : 'Etiqueta pendiente de definir';
+            return `<span class="syn-label ${extraCls}" data-token="${identifier}" data-tokentype="label" title="${tip}">${match}</span>`;
+          }
+        }
         return match;
       }
     );
