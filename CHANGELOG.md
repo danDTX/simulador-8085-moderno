@@ -4,6 +4,16 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.6] - 2026-10-30
+
+### 🐛 Corrección Crítica en Deshacer (`Ctrl + Z`) tras Autocompletado y Tabulación
+- **↩️ Preservación Nativa del Historial de Deshacer (`Undo Stack`):**
+  - **Causa Raíz:** Al autocompletar una instrucción (ej. presionar `Enter` en `CALL` tras tipear `CA`) o presionar `Tab`, se mutaba directamente la propiedad `.value` del elemento `<textarea>`, lo que por estándar de los navegadores (Chromium / Edge WebView2) destruía y vaciaba la pila interna de historial de `Undo / Redo`.
+  - **Solución Definitiva:** Se migró la inserción de texto en `insertAutocompleteItem`, tabulación e `insertAtCursor` a la API transaccional nativa `document.execCommand('insertText')` con selección precisa de rango y degradación elegante.
+  - **Resultado:** Ahora, al autocompletar cualquier instrucción o insertar código desde el diccionario, presionar **`Ctrl + Z`** revierte de forma instantánea y natural la inserción (volviendo a `CA` o al estado previo) sin perder ninguna acción del historial.
+
+---
+
 ## [1.9.5] - 2026-10-30
 
 ### 🎯 Resaltado y Tarjetas Flotantes en Llamadas y Saltos (`CALL`, `JMP`, `Jxx`, `Cxx`, `LXI`)

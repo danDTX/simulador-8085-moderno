@@ -4,7 +4,7 @@
  * Consulta la API pública de GitHub: danDTX/simulador-8085-moderno
  */
 
-export const APP_VERSION = '1.9.5';
+export const APP_VERSION = '1.9.6';
 export const GITHUB_REPO = 'danDTX/simulador-8085-moderno';
 export const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 

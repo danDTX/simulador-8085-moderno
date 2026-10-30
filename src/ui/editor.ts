@@ -374,13 +374,23 @@ export class CodeEditor {
         }
       }
 
-      // 2. Tab Key Indentation
+      // 2. Tab Key Indentation (Preservando el historial de Ctrl+Z)
       if (e.key === 'Tab') {
         e.preventDefault();
-        const start = this.textarea.selectionStart;
-        const end = this.textarea.selectionEnd;
-        this.textarea.value = this.textarea.value.substring(0, start) + '    ' + this.textarea.value.substring(end);
-        this.textarea.selectionStart = this.textarea.selectionEnd = start + 4;
+        let inserted = false;
+        try {
+          inserted = document.execCommand('insertText', false, '    ');
+        } catch {
+          inserted = false;
+        }
+
+        if (!inserted) {
+          const start = this.textarea.selectionStart;
+          const end = this.textarea.selectionEnd;
+          this.textarea.value = this.textarea.value.substring(0, start) + '    ' + this.textarea.value.substring(end);
+          this.textarea.selectionStart = this.textarea.selectionEnd = start + 4;
+        }
+
         this.isDirty = true;
         this.needsAssemble = true;
         const curTab = this.tabs.find(t => t.id === this.activeTabId);
@@ -1128,15 +1138,30 @@ export class CodeEditor {
 
   private insertAutocompleteItem(item: { label: string; insertText: string }): void {
     if (!item) return;
-    const before = this.textarea.value.substring(0, this.acWordStart);
-    const after = this.textarea.value.substring(this.acWordEnd);
 
     // If it's a multiline snippet or directive, insert directly; if opcode, add space
     const isSnippet = item.insertText.includes('\n');
     const replacement = isSnippet ? item.insertText : item.insertText + ' ';
 
-    this.textarea.value = before + replacement + after;
-    this.textarea.selectionStart = this.textarea.selectionEnd = before.length + replacement.length;
+    // Enfocar y seleccionar el rango exacto de la palabra parcial (ej. "CA")
+    this.textarea.focus();
+    this.textarea.setSelectionRange(this.acWordStart, this.acWordEnd);
+
+    // Usar execCommand para preservar de forma 100% nativa el historial de Undo/Redo (Ctrl+Z)
+    let replaced = false;
+    try {
+      replaced = document.execCommand('insertText', false, replacement);
+    } catch {
+      replaced = false;
+    }
+
+    if (!replaced) {
+      const before = this.textarea.value.substring(0, this.acWordStart);
+      const after = this.textarea.value.substring(this.acWordEnd);
+      this.textarea.value = before + replacement + after;
+      this.textarea.selectionStart = this.textarea.selectionEnd = before.length + replacement.length;
+    }
+
     this.isDirty = true;
     this.needsAssemble = true;
     const cur = this.tabs.find(t => t.id === this.activeTabId);
@@ -1188,13 +1213,23 @@ export class CodeEditor {
   }
 
   public insertAtCursor(code: string): void {
-    const start = this.textarea.selectionStart;
-    const end = this.textarea.selectionEnd;
-    const before = this.textarea.value.substring(0, start);
-    const after = this.textarea.value.substring(end);
+    this.textarea.focus();
+    let replaced = false;
+    try {
+      replaced = document.execCommand('insertText', false, code);
+    } catch {
+      replaced = false;
+    }
 
-    this.textarea.value = before + code + after;
-    this.textarea.selectionStart = this.textarea.selectionEnd = start + code.length;
+    if (!replaced) {
+      const start = this.textarea.selectionStart;
+      const end = this.textarea.selectionEnd;
+      const before = this.textarea.value.substring(0, start);
+      const after = this.textarea.value.substring(end);
+      this.textarea.value = before + code + after;
+      this.textarea.selectionStart = this.textarea.selectionEnd = start + code.length;
+    }
+
     this.isDirty = true;
     this.needsAssemble = true;
     const cur = this.tabs.find(t => t.id === this.activeTabId);
