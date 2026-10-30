@@ -235,7 +235,7 @@ export class DocsHelper {
         </div>
         <div class="hover-card-summary" style="margin-top: 6px;">
           📍 Definida en la línea <strong>${lineIndex + 1}</strong>.<br/>
-          <em>(Presiona <strong>F12</strong> o <strong>Ctrl + Clic</strong> para saltar a su definición)</em>
+          <em>(Presiona <strong>F12</strong> o <strong>Ctrl + Clic</strong> para saltar • <strong>Alt + ←</strong> para volver)</em>
         </div>
       </div>
     `;

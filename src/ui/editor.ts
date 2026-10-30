@@ -52,6 +52,8 @@ export class CodeEditor {
   // Status & error navigation state
   private statusResetTimer: any = null;
   private currentErrorLine: number | null = null;
+  private navHistoryBack: Array<{ tabId: string; charIndex: number }> = [];
+  private navHistoryForward: Array<{ tabId: string; charIndex: number }> = [];
 
   // Autocomplete state
   private acItems: { label: string; detail: string; insertText: string }[] = [];
@@ -133,13 +135,17 @@ export class CodeEditor {
     // Clic interactivo en el mensaje de error para saltar directo a la línea fallida
     this.errorBadge.addEventListener('click', () => {
       if (this.currentErrorLine && this.currentErrorLine > 0) {
+        this.pushNavLocation();
         this.goToLine(this.currentErrorLine - 1);
+        this.setStatus(`📍 Saltó a la línea del error (${this.currentErrorLine}) • Alt+← para volver`);
       }
     });
 
     this.container.querySelector('#error-banner-jump-target')?.addEventListener('click', () => {
       if (this.currentErrorLine && this.currentErrorLine > 0) {
+        this.pushNavLocation();
         this.goToLine(this.currentErrorLine - 1);
+        this.setStatus(`📍 Saltó a la línea del error (${this.currentErrorLine}) • Alt+← para volver`);
       }
     });
 
@@ -402,6 +408,18 @@ export class CodeEditor {
         return;
       }
 
+      // Historial de Navegación: Alt + Flecha Izquierda (Volver) / Alt + Flecha Derecha (Avanzar)
+      if (e.altKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'Left')) {
+        e.preventDefault();
+        this.navigateBack();
+        return;
+      }
+      if (e.altKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowRight' || e.key === 'Right')) {
+        e.preventDefault();
+        this.navigateForward();
+        return;
+      }
+
       // 4. Go to Definition Shortcut: F12
       if (e.key === 'F12') {
         e.preventDefault();
@@ -519,11 +537,88 @@ export class CodeEditor {
     const labels = DocsHelper.scanLabels(text);
     if (labels.has(word)) {
       const info = labels.get(word)!;
+      this.pushNavLocation();
       this.goToLine(info.line);
-      this.setStatus(`📍 Saltó a la definición de '${word}' (Línea ${info.line + 1})`);
+      this.setStatus(`📍 Saltó a la definición de '${word}' (Línea ${info.line + 1}) • Pulsa Alt+← para volver`);
     } else {
       this.setStatus(`No se encontró la definición de la etiqueta '${word}'`, true);
     }
+  }
+
+  // --- HISTORIAL DE NAVEGACION (Alt + ← / Alt + →) ---
+  public pushNavLocation(): void {
+    const curPos = this.textarea.selectionStart;
+    const last = this.navHistoryBack[this.navHistoryBack.length - 1];
+    if (last && last.tabId === this.activeTabId && Math.abs(last.charIndex - curPos) < 5) {
+      return;
+    }
+    this.navHistoryBack.push({
+      tabId: this.activeTabId,
+      charIndex: curPos
+    });
+    if (this.navHistoryBack.length > 50) {
+      this.navHistoryBack.shift();
+    }
+    this.navHistoryForward = [];
+  }
+
+  public navigateBack(): boolean {
+    if (this.navHistoryBack.length === 0) {
+      this.setStatus('No hay ubicaciones previas en el historial (Alt+←)');
+      return false;
+    }
+    const currentLoc = {
+      tabId: this.activeTabId,
+      charIndex: this.textarea.selectionStart
+    };
+    this.navHistoryForward.push(currentLoc);
+    const targetLoc = this.navHistoryBack.pop()!;
+
+    if (targetLoc.tabId && targetLoc.tabId !== this.activeTabId) {
+      this.switchTab(targetLoc.tabId);
+    }
+    this.goToPosition(targetLoc.charIndex);
+    const line = this.getCursorLine();
+    this.setStatus(`📍 Volvió a Línea ${line}`);
+    return true;
+  }
+
+  public navigateForward(): boolean {
+    if (this.navHistoryForward.length === 0) {
+      this.setStatus('No hay ubicaciones posteriores en el historial (Alt+→)');
+      return false;
+    }
+    const currentLoc = {
+      tabId: this.activeTabId,
+      charIndex: this.textarea.selectionStart
+    };
+    this.navHistoryBack.push(currentLoc);
+    const targetLoc = this.navHistoryForward.pop()!;
+
+    if (targetLoc.tabId && targetLoc.tabId !== this.activeTabId) {
+      this.switchTab(targetLoc.tabId);
+    }
+    this.goToPosition(targetLoc.charIndex);
+    const line = this.getCursorLine();
+    this.setStatus(`📍 Avanzó a Línea ${line}`);
+    return true;
+  }
+
+  public goToPosition(charIndex: number): void {
+    const text = this.textarea.value;
+    const clampedPos = Math.max(0, Math.min(charIndex, text.length));
+    this.textarea.selectionStart = this.textarea.selectionEnd = clampedPos;
+    const lineIndex = text.substring(0, clampedPos).split('\n').length - 1;
+    if (this.isWordWrap && this.highlightOverlay.children[lineIndex]) {
+      const lineEl = this.highlightOverlay.children[lineIndex] as HTMLElement;
+      this.textarea.scrollTop = Math.max(0, lineEl.offsetTop - 60);
+    } else {
+      const lineHeight = parseFloat(getComputedStyle(this.textarea).lineHeight) || 20;
+      this.textarea.scrollTop = Math.max(0, lineIndex * lineHeight - 60);
+    }
+    this.textarea.focus();
+    this.updateEditor();
+    this.updateCursorPos();
   }
 
   public goToLine(lineIndex: number): void {

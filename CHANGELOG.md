@@ -4,6 +4,21 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.4] - 2026-10-30
+
+### 🚀 Navegación Bidireccional en el Editor (Historial de Saltos a Definición)
+- **🔙 Retorno Rápido con `Alt + ←` (Navigate Back):**
+  - Implementación de la pila de historial de navegación en el editor de código. Al saltar a la definición de una etiqueta (`Ctrl + Clic` o `F12`) o al hacer clic en un mensaje de error, la posición de origen se almacena automáticamente.
+  - Al presionar **`Alt + Flecha Izquierda`** (o `Alt + Left`), el cursor y el desplazamiento regresan de forma instantánea a la línea y columna original donde se estaba editando, mostrando confirmación en la barra de estado (`📍 Volvió a Línea X`).
+- **🔜 Avance con `Alt + →` (Navigate Forward):**
+  - Permite volver a avanzar hacia adelante en la cadena de saltos previos en caso de haber regresado.
+- **💡 Indicación Contextual Didáctica en Tarjeta Flotante:**
+  - Al pasar el cursor sobre cualquier etiqueta, el mensaje emergente informa: `(Presiona F12 o Ctrl + Clic para saltar • Alt + ← para volver)`.
+- **🧪 Cobertura de Pruebas Unitarias:**
+  - Incorporada nueva suite automatizada en `tests/editor_navigation.test.ts` validando la preservación de saltos y navegación limpia.
+
+---
+
 ## [1.9.3] - 2026-10-30
 
 ### 🎨 Modo Claro en Tarjetas Flotantes (Hover Tooltip, Autocompletado y Resaltado)
