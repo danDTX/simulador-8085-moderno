@@ -680,20 +680,6 @@ class SimulatorApp {
     const byteCount = result.codeAddresses.size;
     this.editor.setStatus(`Ensamblado con éxito (${byteCount} bytes en memoria)`, false, false);
 
-    // Auto-detect interrupt handlers configured for keyboard in assembly program
-    if (result.memory[0x0024] !== 0) {
-      this.perifs.state.autoInterrupts.trap.mode = 'keyboard';
-    }
-    if (result.memory[0x002C] !== 0) {
-      this.perifs.state.autoInterrupts.rst55.mode = 'keyboard';
-    }
-    if (result.memory[0x0034] !== 0) {
-      this.perifs.state.autoInterrupts.rst65.mode = 'keyboard';
-    }
-    if (result.memory[0x003C] !== 0) {
-      this.perifs.state.autoInterrupts.rst75.mode = 'keyboard';
-    }
-
     // Trigger peripherals and terminal update with loaded memory & ports
     this.perifs.notify();
     this.perifs.notifyTerminal();

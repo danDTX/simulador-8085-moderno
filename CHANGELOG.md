@@ -4,6 +4,20 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.10] - 2026-10-31
+
+### 🔌 Control 100% Manual de Interrupciones y Eliminación de Auto-detección Fantasma
+- **🚫 Eliminación de la Auto-detección en Ensamblado:**
+  - Se eliminó el bloque de código en `assembleCode()` (`main.ts`) que inspeccionaba en segundo plano las direcciones vectoriales (`0024H`, `002CH`, `0034H`, `003CH`) y activaba automáticamente interrupciones de teclado por su cuenta al compilar (`F9`).
+  - El compilador ahora se limita con estricta pureza a cargar bytes en la memoria RAM, sin alterar jamás el estado de los periféricos ni de las interrupciones externas, calcando el comportamiento de `8085sim`.
+- **🎯 Fuente Única de Verdad para Interrupciones de Teclado:**
+  - `pressKey()` despacha única y exclusivamente la línea seleccionada por el usuario en `keyboardInterruptType` (`NONE`, `5.5`, `6.5`, `7.5`, `TRAP` o `INTR`).
+  - Se solucionó el bug donde cambiar el teclado de RST 7.5 a RST 5.5 seguía ejecutando 7.5: al eliminar el doble despacho en `peripherals.ts`, conmutar entre vectores aísla al 100% la interrupción elegida, sin disparos residuales ni solapamiento por prioridades.
+- **🔄 Sincronización Reactiva:**
+  - El selector del panel de teclado escucha reactivamente las actualizaciones de estado para mantenerse siempre sincronizado con el diálogo modal de interrupciones.
+
+---
+
 ## [1.9.9] - 2026-10-31
 
 ### 💾 Eliminación del Autoguardado Continuo y Corrección Definitiva del Descarte de Cambios

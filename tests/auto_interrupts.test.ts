@@ -66,6 +66,15 @@ perifs.pressKey('A');
 assert.strictEqual(cpu.interrupts.rst75, true, 'RST 7.5 must be triggered by keypress when configured for keyboard');
 console.log('✅ [PASS] Keypress dynamically triggered RST 7.5');
 
+// 4. Switching interrupt type dynamically (e.g. from 7.5 to 5.5) must NOT fire 7.5
+cpu.interrupts.rst75 = false;
+cpu.interrupts.rst55 = false;
+perifs.setKeyboardInterrupt('5.5');
+perifs.pressKey('B');
+assert.strictEqual(cpu.interrupts.rst55, true, 'RST 5.5 must trigger when switched to 5.5');
+assert.strictEqual(cpu.interrupts.rst75, false, 'RST 7.5 must NOT trigger when keyboard is set to 5.5');
+console.log('✅ [PASS] Switching from 7.5 to 5.5 strictly triggers ONLY 5.5 without ghost 7.5 interrupts');
+
 // 5. Execution of ISRs for all 4 interrupt vectors (TRAP, RST 7.5, RST 6.5, RST 5.5)
 const testVectors = [
   { name: 'TRAP', vector: 0x0024, trigger: () => { cpu.interrupts.trap = true; }, needsEI: false },

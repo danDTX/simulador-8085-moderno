@@ -108,12 +108,13 @@ export function createKeypadPanel(cpu: Intel8085, perifs: PeripheralsManager): H
   const selKeyIntr = panel.querySelector('#sel-keypad-intr') as HTMLSelectElement;
   selKeyIntr.addEventListener('change', () => {
     const val = selKeyIntr.value;
-    perifs.state.keyboardInterruptType = val as any;
-    // Sincronizar bidireccionalmente con autoInterrupts
-    perifs.state.autoInterrupts.rst75.mode = (val === '7.5') ? 'keyboard' : 'no';
-    perifs.state.autoInterrupts.rst65.mode = (val === '6.5') ? 'keyboard' : 'no';
-    perifs.state.autoInterrupts.rst55.mode = (val === '5.5') ? 'keyboard' : 'no';
-    perifs.notify();
+    perifs.setKeyboardInterrupt(val as any);
+  });
+
+  perifs.subscribe((state) => {
+    if (selKeyIntr && selKeyIntr.value !== state.keyboardInterruptType) {
+      selKeyIntr.value = state.keyboardInterruptType;
+    }
   });
 
   const chkTimer = panel.querySelector('#chk-timer-enable') as HTMLInputElement;

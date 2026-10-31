@@ -26,10 +26,8 @@ const cpu = new Intel8085();
 const perifs = new PeripheralsManager(cpu);
 perifs.attachToCpu();
 
-// Auto-detect TRAP vector as implemented in main.ts
-if (result.memory[0x0024] !== 0) {
-  perifs.state.autoInterrupts.trap.mode = 'keyboard';
-}
+// Explicitly configure keyboard to trigger TRAP vector for Pantalla.asm
+perifs.setKeyboardInterrupt('TRAP');
 
 cpu.memory.set(result.memory);
 cpu.regs.pc = result.entryPoint;

@@ -36,7 +36,7 @@ export interface PeripheralsState {
   timerIntervalMs: number;
   timerEnabled: boolean;
   timerInterruptType: '5.5' | '6.5' | '7.5' | 'INTR' | 'NONE';
-  keyboardInterruptType: '5.5' | '6.5' | '7.5' | 'INTR' | 'NONE';
+  keyboardInterruptType: '5.5' | '6.5' | '7.5' | 'TRAP' | 'INTR' | 'NONE';
 
   // Configuración de interrupciones automáticas (FormInterrup)
   autoInterrupts: AutoInterruptsSettings;
@@ -198,22 +198,37 @@ export class PeripheralsManager {
     this.state.portsIn[this.state.keyboardPort] = code;
     this.state.currentKeyLabel = char === '\r' ? 'ENTER' : char === '\x1b' ? 'ESC' : char;
 
-    // Fire interrupts according to autoInterrupts configuration
-    if (this.state.autoInterrupts.trap.mode === 'keyboard') this.cpu.interrupts.trap = true;
-    if (this.state.autoInterrupts.rst75.mode === 'keyboard') this.cpu.interrupts.rst75 = true;
-    if (this.state.autoInterrupts.rst65.mode === 'keyboard') this.cpu.interrupts.rst65 = true;
-    if (this.state.autoInterrupts.rst55.mode === 'keyboard') this.cpu.interrupts.rst55 = true;
-
-    // Support for keyboardInterruptType dropdown
-    if (this.state.keyboardInterruptType === '7.5') {
-      this.cpu.interrupts.rst75 = true;
-    } else if (this.state.keyboardInterruptType === '6.5') {
-      this.cpu.interrupts.rst65 = true;
-    } else if (this.state.keyboardInterruptType === '5.5') {
-      this.cpu.interrupts.rst55 = true;
-    } else if (this.state.keyboardInterruptType === 'INTR') {
-      this.cpu.interrupts.intr = true;
+    // Single source of truth: Keyboard interrupt dispatched strictly according to user selection
+    switch (this.state.keyboardInterruptType) {
+      case 'TRAP':
+        this.cpu.interrupts.trap = true;
+        break;
+      case '7.5':
+        this.cpu.interrupts.rst75 = true;
+        break;
+      case '6.5':
+        this.cpu.interrupts.rst65 = true;
+        break;
+      case '5.5':
+        this.cpu.interrupts.rst55 = true;
+        break;
+      case 'INTR':
+        this.cpu.interrupts.intr = true;
+        break;
+      case 'NONE':
+      default:
+        // No interrupt generated
+        break;
     }
+    this.notify();
+  }
+
+  public setKeyboardInterrupt(type: '5.5' | '6.5' | '7.5' | 'TRAP' | 'INTR' | 'NONE'): void {
+    this.state.keyboardInterruptType = type;
+    this.state.autoInterrupts.trap.mode = (type === 'TRAP') ? 'keyboard' : 'no';
+    this.state.autoInterrupts.rst75.mode = (type === '7.5') ? 'keyboard' : 'no';
+    this.state.autoInterrupts.rst65.mode = (type === '6.5') ? 'keyboard' : 'no';
+    this.state.autoInterrupts.rst55.mode = (type === '5.5') ? 'keyboard' : 'no';
     this.notify();
   }
 
@@ -239,6 +254,23 @@ export class PeripheralsManager {
 
   public setAutoInterrupts(settings: AutoInterruptsSettings): void {
     this.state.autoInterrupts = JSON.parse(JSON.stringify(settings));
+    if (this.state.autoInterrupts.trap.mode === 'keyboard') {
+      this.state.keyboardInterruptType = 'TRAP';
+      this.state.autoInterrupts.rst75.mode = this.state.autoInterrupts.rst75.mode === 'keyboard' ? 'no' : this.state.autoInterrupts.rst75.mode;
+      this.state.autoInterrupts.rst65.mode = this.state.autoInterrupts.rst65.mode === 'keyboard' ? 'no' : this.state.autoInterrupts.rst65.mode;
+      this.state.autoInterrupts.rst55.mode = this.state.autoInterrupts.rst55.mode === 'keyboard' ? 'no' : this.state.autoInterrupts.rst55.mode;
+    } else if (this.state.autoInterrupts.rst75.mode === 'keyboard') {
+      this.state.keyboardInterruptType = '7.5';
+      this.state.autoInterrupts.rst65.mode = this.state.autoInterrupts.rst65.mode === 'keyboard' ? 'no' : this.state.autoInterrupts.rst65.mode;
+      this.state.autoInterrupts.rst55.mode = this.state.autoInterrupts.rst55.mode === 'keyboard' ? 'no' : this.state.autoInterrupts.rst55.mode;
+    } else if (this.state.autoInterrupts.rst65.mode === 'keyboard') {
+      this.state.keyboardInterruptType = '6.5';
+      this.state.autoInterrupts.rst55.mode = this.state.autoInterrupts.rst55.mode === 'keyboard' ? 'no' : this.state.autoInterrupts.rst55.mode;
+    } else if (this.state.autoInterrupts.rst55.mode === 'keyboard') {
+      this.state.keyboardInterruptType = '5.5';
+    } else {
+      this.state.keyboardInterruptType = 'NONE';
+    }
     this.syncTimers();
     this.notify();
   }
