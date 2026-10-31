@@ -29,9 +29,9 @@ export class Intel8085 {
     rst55: false,
     intr: false,
     intrVector: 0xcd,
-    mask75: true,
-    mask65: true,
-    mask55: true,
+    mask75: false,
+    mask65: false,
+    mask55: false,
   };
 
   public memory: Uint8Array = new Uint8Array(65536);
@@ -90,9 +90,9 @@ export class Intel8085 {
     this.interrupts.rst65 = false;
     this.interrupts.rst55 = false;
     this.interrupts.intr = false;
-    this.interrupts.mask75 = true;
-    this.interrupts.mask65 = true;
-    this.interrupts.mask55 = true;
+    this.interrupts.mask75 = false;
+    this.interrupts.mask65 = false;
+    this.interrupts.mask55 = false;
 
     this.halted = false;
     this.totalCycles = 0;

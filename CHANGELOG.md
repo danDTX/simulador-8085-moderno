@@ -4,6 +4,23 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.8] - 2026-10-30
+
+### ⚡ Corrección y Calibración Integral del Sistema de Interrupciones (TRAP, RST 7.5, RST 6.5, RST 5.5)
+- **🚫 Inicio en 'NO' por Defecto en Todas las Interrupciones:**
+  - El modal de configuración de interrupciones externas generadas automáticamente ahora inicializa estrictamente todos los vectores (`TRAP`, `RST 7.5`, `RST 6.5`, `RST 5.5`) en **"No"** (eliminando la preselección arbitraria de RST 5.5 al pulsar teclado).
+  - El panel de teclado virtual (`KeypadPanel`) inicia en **"Ninguna"**.
+- **🎛️ Sincronización y Disparo Real de RST 7.5, RST 6.5 y RST 5.5:**
+  - **Causa Raíz del Fallo en RST 7.5:** El selector de interrupción del panel de teclado (`#sel-keypad-intr`) actualizaba `keyboardInterruptType = '7.5'`, pero el manejador de pulsaciones `pressKey()` solo evaluaba el tipo `INTR`, ignorando `7.5`, `6.5` y `5.5` salvo que estuvieran configurados en la matriz del modal.
+  - **Solución:** `pressKey()` ahora dispara de forma directa e independiente el vector seleccionado (`7.5`, `6.5`, `5.5` o `INTR`) tanto por la matriz de `autoInterrupts` como por el selector directo del panel de teclado, manteniéndolos bidireccionalmente sincronizados.
+- **🔓 Des-enmascaramiento por Defecto en CPU (Compatibilidad 8085sim):**
+  - En el software original `8085sim` de Jubin Mitra, las máscaras de hardware `mask75`, `mask65` y `mask55` inician en `0` (desenmascaradas) en el arranque/reset para permitir que programas estudiantiles con solo `EI` (como el ejemplo oficial `Leds.asm`) respondan inmediatamente sin obligar a ejecutar `SIM`.
+  - Ahora `cpu.reset()` inicializa las máscaras en `false`, manteniendo compatibilidad total si el alumno decide ejecutar `SIM` con `MSE=1` para enmascararlas o reconfigurarlas.
+- **✅ Verificación y Validación de los 4 Vectores:**
+  - `TRAP` (`0024H`), `RST 7.5` (`003CH`), `RST 6.5` (`0034H`) y `RST 5.5` (`002CH`) verificados con ejecución completa de ISR y retorno limpio con `RET`.
+
+---
+
 ## [1.9.7] - 2026-10-30
 
 ### 🇪🇸 Soporte Completo para la Letra 'Ñ' y Caracteres en Español en Etiquetas

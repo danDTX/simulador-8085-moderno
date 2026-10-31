@@ -160,6 +160,16 @@ export function openInterruptsDialog(perifs: PeripheralsManager): void {
       }
     };
 
+    if (newConfig.rst75.mode === 'keyboard') {
+      perifs.state.keyboardInterruptType = '7.5';
+    } else if (newConfig.rst65.mode === 'keyboard') {
+      perifs.state.keyboardInterruptType = '6.5';
+    } else if (newConfig.rst55.mode === 'keyboard') {
+      perifs.state.keyboardInterruptType = '5.5';
+    } else {
+      perifs.state.keyboardInterruptType = 'NONE';
+    }
+
     perifs.setAutoInterrupts(newConfig);
     closeDialog();
   });

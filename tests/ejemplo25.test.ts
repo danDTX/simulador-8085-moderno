@@ -45,6 +45,14 @@ function runEjemplo25Test() {
   const vramSlice = Buffer.from(cpu.memory.slice(0xe000, 0xe100)).toString('latin1');
   console.log('VRAM contains menu header:', vramSlice.includes('LLAVE DIGITAL 8085'));
 
+  // Configure RST 5.5 for keyboard (matching required settings for ejemplo 25)
+  perifs.setAutoInterrupts({
+    trap: { mode: 'no', timerMs: 0 },
+    rst75: { mode: 'no', timerMs: 0 },
+    rst65: { mode: 'no', timerMs: 0 },
+    rst55: { mode: 'keyboard', timerMs: 0 }
+  });
+
   // Simulate key press '1'
   console.log('Simulating keypress "1"...');
   perifs.pressKey('1');

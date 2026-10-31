@@ -60,12 +60,12 @@ export class PeripheralsManager {
     timerIntervalMs: 500,
     timerEnabled: false,
     timerInterruptType: '6.5',
-    keyboardInterruptType: '5.5',
+    keyboardInterruptType: 'NONE',
     autoInterrupts: {
       trap: { mode: 'no', timerMs: 0 },
       rst75: { mode: 'no', timerMs: 0 },
       rst65: { mode: 'no', timerMs: 0 },
-      rst55: { mode: 'keyboard', timerMs: 0 },
+      rst55: { mode: 'no', timerMs: 0 },
     },
   };
 
@@ -204,8 +204,14 @@ export class PeripheralsManager {
     if (this.state.autoInterrupts.rst65.mode === 'keyboard') this.cpu.interrupts.rst65 = true;
     if (this.state.autoInterrupts.rst55.mode === 'keyboard') this.cpu.interrupts.rst55 = true;
 
-    // Backward compatibility with legacy keyboardInterruptType
-    if (this.state.keyboardInterruptType === 'INTR') {
+    // Support for keyboardInterruptType dropdown
+    if (this.state.keyboardInterruptType === '7.5') {
+      this.cpu.interrupts.rst75 = true;
+    } else if (this.state.keyboardInterruptType === '6.5') {
+      this.cpu.interrupts.rst65 = true;
+    } else if (this.state.keyboardInterruptType === '5.5') {
+      this.cpu.interrupts.rst55 = true;
+    } else if (this.state.keyboardInterruptType === 'INTR') {
       this.cpu.interrupts.intr = true;
     }
     this.notify();

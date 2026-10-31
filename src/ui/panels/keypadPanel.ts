@@ -50,11 +50,11 @@ export function createKeypadPanel(cpu: Intel8085, perifs: PeripheralsManager): H
           <div class="config-row">
             <label>Interrupción de Teclado:</label>
             <select id="sel-keypad-intr">
-              <option value="5.5" selected>RST 5.5</option>
-              <option value="6.5">RST 6.5</option>
-              <option value="7.5">RST 7.5</option>
-              <option value="INTR">INTR</option>
-              <option value="NONE">Ninguna</option>
+              <option value="NONE" ${perifs.state.keyboardInterruptType === 'NONE' ? 'selected' : ''}>Ninguna</option>
+              <option value="5.5" ${perifs.state.keyboardInterruptType === '5.5' ? 'selected' : ''}>RST 5.5</option>
+              <option value="6.5" ${perifs.state.keyboardInterruptType === '6.5' ? 'selected' : ''}>RST 6.5</option>
+              <option value="7.5" ${perifs.state.keyboardInterruptType === '7.5' ? 'selected' : ''}>RST 7.5</option>
+              <option value="INTR" ${perifs.state.keyboardInterruptType === 'INTR' ? 'selected' : ''}>INTR</option>
             </select>
           </div>
           <div class="config-row">
@@ -107,7 +107,13 @@ export function createKeypadPanel(cpu: Intel8085, perifs: PeripheralsManager): H
   // Settings
   const selKeyIntr = panel.querySelector('#sel-keypad-intr') as HTMLSelectElement;
   selKeyIntr.addEventListener('change', () => {
-    perifs.state.keyboardInterruptType = selKeyIntr.value as any;
+    const val = selKeyIntr.value;
+    perifs.state.keyboardInterruptType = val as any;
+    // Sincronizar bidireccionalmente con autoInterrupts
+    perifs.state.autoInterrupts.rst75.mode = (val === '7.5') ? 'keyboard' : 'no';
+    perifs.state.autoInterrupts.rst65.mode = (val === '6.5') ? 'keyboard' : 'no';
+    perifs.state.autoInterrupts.rst55.mode = (val === '5.5') ? 'keyboard' : 'no';
+    perifs.notify();
   });
 
   const chkTimer = panel.querySelector('#chk-timer-enable') as HTMLInputElement;
