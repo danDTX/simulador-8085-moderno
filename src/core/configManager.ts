@@ -18,7 +18,7 @@ export interface AppConfig {
 
 export const DEFAULT_CONFIG: AppConfig = {
   theme: 'dark',
-  wordWrap: true,
+  wordWrap: false,
   zoomLevel: 1.0,
   openTabs: [],
   activeTabName: 'sin_titulo.asm',

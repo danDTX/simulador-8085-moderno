@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
+import { DocsHelper } from '../src/core/docsHelper.ts';
 
 describe('Editor Navigation History Stack (Alt+← / Alt+→)', () => {
   class NavigationStack {
@@ -105,5 +106,24 @@ describe('Editor Navigation History Stack (Alt+← / Alt+→)', () => {
     assert.strictEqual(isCallTargetZone, true);
     assert.strictEqual(knownLabels.has('BORRAR_PANTALLA'), true);
     assert.strictEqual(knownLabels.has('bucle'.toUpperCase()), true);
+  });
+
+  it('correctly handles labels and references with Spanish characters (ñ, Ñ, accents)', () => {
+    const codeWithN = `
+      .org 0100H
+      CALL CONTRASEÑA
+      JZ PEQUEÑO
+      HLT
+      CONTRASEÑA:
+      RET
+      PEQUEÑO:
+      RET
+    `;
+    const labels = DocsHelper.scanLabels(codeWithN);
+    assert.strictEqual(labels.has('CONTRASEÑA'), true);
+    assert.strictEqual(labels.has('PEQUEÑO'), true);
+
+    const broken = DocsHelper.validateLabels(codeWithN);
+    assert.strictEqual(broken.length, 0);
   });
 });

@@ -26,7 +26,7 @@ async function runTests() {
   // 1. Initial Load Defaults
   const initial = await ConfigManager.load();
   assert(initial.theme === 'dark', 'Default theme is dark');
-  assert(initial.wordWrap === true, 'Default wordWrap is true');
+  assert(initial.wordWrap === false, 'Default wordWrap is false');
   assert(initial.zoomLevel === 1.0, 'Default zoomLevel is 1.0');
   assert(initial.splitRatio === 0.5, 'Default splitRatio is 0.5');
   assert(Array.isArray(initial.openTabs) && initial.openTabs.length === 0, 'Initial openTabs is empty');

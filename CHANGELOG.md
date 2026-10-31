@@ -4,6 +4,25 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.7] - 2026-10-30
+
+### 🇪🇸 Soporte Completo para la Letra 'Ñ' y Caracteres en Español en Etiquetas
+- **🔡 Soporte Nativo en Analizador Léxico y Tabla de Símbolos:**
+  - El compilador (`assembler.ts`), tabla de símbolos (`symbolTable`) y evaluador de expresiones ahora admiten fluidamente identificadores con la letra `Ñ`, `ñ` y vocales con tildes (ej. `CONTRASEÑA:`, `PEQUEÑO:`, `AÑO:`, `SUBRUTÍNA:`).
+  - Compatible con saltos y llamadas directas: `CALL CONTRASEÑA`, `JZ PEQUEÑO`, `JMP AÑO`.
+  - Resuelto el conflicto de límites de palabra (`\b`) en expresiones regulares de JavaScript mediante aserciones de mirada Unicode (`(?<!...)` y `(?!...)`).
+- **🟣 Resaltado, Hover y Autocompletado con 'Ñ':**
+  - El resaltador de sintaxis (`editor.ts`), escáner de etiquetas (`DocsHelper.scanLabels`) y validador de saltos (`validateLabels`) ya no fragmentan las palabras con 'Ñ' (evitando que `CONTRASEÑA` se parta erróneamente en `CONTRASE` y `A`).
+  - El autocompletado y el salto a la definición (`Ctrl + Clic` / `F12`) identifican la palabra completa con caracteres en español.
+
+### 🐛 Corrección Definitiva del Desfase Vertical del Cursor y Selección
+- **📐 Desactivación de Word Wrap por Defecto:**
+  - Siguiendo el estándar de desarrollo en ensamblador (donde el código se organiza estrictamente por columnas de etiquetas, mnemónicos, operandos y comentarios), el editor ahora inicia con **Ajuste de Línea desactivado por defecto** (`wordWrap: false`), evitando que los comentarios largos se quiebren y desalineen la vista.
+- **🛡️ Blindaje CSS de Alturas Sincronizadas:**
+  - Corregida la regla de `.code-line` para permitir alturas dinámicas sin límites fijos de `max-height` si el usuario activa el ajuste de línea con `Alt+Z`, manteniendo una sincronización matemática exacta entre el `<textarea>` nativo y la capa de resaltado visual.
+
+---
+
 ## [1.9.6] - 2026-10-30
 
 ### 🐛 Corrección Crítica en Deshacer (`Ctrl + Z`) tras Autocompletado y Tabulación

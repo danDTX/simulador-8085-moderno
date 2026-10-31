@@ -246,7 +246,7 @@ export class DocsHelper {
     const lines = source.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const lineText = lines[i].split(';')[0];
-      const match = lineText.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/);
+      const match = lineText.match(/^\s*([A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ]+)\s*:/u);
       if (match) {
         const labelName = match[1];
         const col = lineText.indexOf(labelName);
@@ -258,7 +258,7 @@ export class DocsHelper {
 
   public static validateLabels(source: string): { line: number; label: string }[] {
     const labels = DocsHelper.scanLabels(source);
-    const jumpCallRegex = /\b(CALL|CC|CNC|CZ|CNZ|CM|CP|CPE|CPO|JMP|JC|JNC|JZ|JNZ|JM|JP|JPE|JPO)\s+([A-Za-z_][A-Za-z0-9_]*)\b/gi;
+    const jumpCallRegex = /(?<![A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ])(CALL|CC|CNC|CZ|CNZ|CM|CP|CPE|CPO|JMP|JC|JNC|JZ|JNZ|JM|JP|JPE|JPO)\s+([A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ]+)/giu;
     const errors: { line: number; label: string }[] = [];
 
     const lines = source.split('\n');
@@ -310,7 +310,7 @@ export class DocsHelper {
       }
 
       let codeLine = '';
-      const matchLabel = codePart.match(/^\s*([A-Za-z_][A-Za-z0-9_]*:)(.*)$/);
+      const matchLabel = codePart.match(/^\s*([A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ]+:)(.*)$/u);
 
       if (matchLabel) {
         const label = matchLabel[1];

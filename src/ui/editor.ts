@@ -67,7 +67,7 @@ export class CodeEditor {
     this.callbacks = callbacks;
 
     const savedWrap = localStorage.getItem('sim8085_word_wrap');
-    this.isWordWrap = (savedWrap !== 'false');
+    this.isWordWrap = (savedWrap === 'true');
 
     this.container.innerHTML = `
       <div class="editor-wrapper ${this.isWordWrap ? 'word-wrap' : ''}">
@@ -539,8 +539,8 @@ export class CodeEditor {
     const text = this.textarea.value;
     let start = pos;
     let end = pos;
-    while (start > 0 && /[a-zA-Z0-9_]/.test(text[start - 1])) start--;
-    while (end < text.length && /[a-zA-Z0-9_]/.test(text[end])) end++;
+    while (start > 0 && /[a-zA-Z0-9_ÑñáéíóúÁÉÍÓÚüÜ]/.test(text[start - 1])) start--;
+    while (end < text.length && /[a-zA-Z0-9_ÑñáéíóúÁÉÍÓÚüÜ]/.test(text[end])) end++;
     const word = text.substring(start, end).trim();
     if (!word) return;
 
@@ -992,7 +992,7 @@ export class CodeEditor {
 
     // Palabra siendo escrita actualmente
     let start = pos;
-    while (start > 0 && /[a-zA-Z0-9_\.]/.test(text[start - 1])) {
+    while (start > 0 && /[a-zA-Z0-9_\.ÑñáéíóúÁÉÍÓÚüÜ]/.test(text[start - 1])) {
       start--;
     }
     const currentWord = text.substring(start, pos);
@@ -1658,9 +1658,24 @@ export class CodeEditor {
   private highlightTokens(code: string, knownLabels?: Set<string>): string {
     const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-    const isTargetZone = /\b(?:CALL|CC|CNC|CZ|CNZ|CM|CP|CPE|CPO|JMP|JC|JNC|JZ|JNZ|JM|JP|JPE|JPO|LDA|STA|LHLD|SHLD|LXI)\b/i.test(code);
+    const isTargetZone = /(?<![A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ])(?:CALL|CC|CNC|CZ|CNZ|CM|CP|CPE|CPO|JMP|JC|JNC|JZ|JNZ|JM|JP|JPE|JPO|LDA|STA|LHLD|SHLD|LXI)(?![A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ])/iu.test(code);
 
-    return escape(code).replace(/(\.org|\.data|\.define|\bdb\b|\bdw\b|\bds\b)|(\b[A-Za-z0-9_]+:)|(\b(?:MOV|MVI|LXI|LDA|STA|LHLD|SHLD|LDAX|STAX|XCHG|ADD|ADI|ADC|ACI|SUB|SUI|SBB|SBI|INR|DCR|INX|DCX|DAD|DAA|ANA|ANI|XRA|XRI|ORA|ORI|CMP|CPI|RLC|RRC|RAL|RAR|CMA|CMC|STC|JMP|JNZ|JZ|JNC|JC|JPO|JPE|JP|JM|CALL|CNZ|CZ|CNC|CC|CPO|CPE|CP|CM|RET|RNZ|RZ|RNC|RC|RPO|RPE|RP|RM|RST|PUSH|POP|XTHL|SPHL|PCHL|IN|OUT|EI|DI|HLT|NOP|RIM|SIM)\b)|(\b(?:A|B|C|D|E|H|L|M|SP|PSW|BC|DE|HL)\b)|(\b[0-9]+[bB]\b|\b[0-9a-fA-F]+[hH]\b|\b0x[0-9a-fA-F]+\b|\b[0-9]+[dD]?\b)|(".*?"|'.*?')|(\b[A-Za-z_][A-Za-z0-9_]*\b)/gi,
+    const IDENT = '[A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ]';
+    const B_START = '(?<!' + IDENT + ')';
+    const B_END = '(?!' + IDENT + ')';
+
+    const tokenRegex = new RegExp(
+      '(' + B_START + '\\.(?:org|data|define)' + B_END + '|' + B_START + '(?:db|dw|ds)' + B_END + ')|' +
+      '(' + B_START + IDENT + '+:)|' +
+      '(' + B_START + '(?:MOV|MVI|LXI|LDA|STA|LHLD|SHLD|LDAX|STAX|XCHG|ADD|ADI|ADC|ACI|SUB|SUI|SBB|SBI|INR|DCR|INX|DCX|DAD|DAA|ANA|ANI|XRA|XRI|ORA|ORI|CMP|CPI|RLC|RRC|RAL|RAR|CMA|CMC|STC|JMP|JNZ|JZ|JNC|JC|JPO|JPE|JP|JM|CALL|CNZ|CZ|CNC|CC|CPO|CPE|CP|CM|RET|RNZ|RZ|RNC|RC|RPO|RPE|RP|RM|RST|PUSH|POP|XTHL|SPHL|PCHL|IN|OUT|EI|DI|HLT|NOP|RIM|SIM)' + B_END + ')|' +
+      '(' + B_START + '(?:A|B|C|D|E|H|L|M|SP|PSW|BC|DE|HL)' + B_END + ')|' +
+      '(' + B_START + '[0-9]+[bB]' + B_END + '|' + B_START + '[0-9a-fA-F]+[hH]' + B_END + '|' + B_START + '0x[0-9a-fA-F]+' + B_END + '|' + B_START + '[0-9]+[dD]?' + B_END + ')|' +
+      '(".*?"|\'.*?\')|' +
+      '(' + B_START + '[A-Za-z_ÑñÁÉÍÓÚáéíóúüÜ]' + IDENT + '*' + B_END + ')',
+      'giu'
+    );
+
+    return escape(code).replace(tokenRegex,
       (match, directive, labelDef, mnemonic, register, number, string, identifier) => {
         if (directive) return `<span class="syn-directive" data-token="${match}" data-tokentype="directive">${match}</span>`;
         if (labelDef) return `<span class="syn-label" data-token="${match.replace(/:$/, '')}" data-tokentype="label">${match}</span>`;

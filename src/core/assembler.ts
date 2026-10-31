@@ -138,9 +138,10 @@ export class Assembler8085 {
 
     // 1. Replace symbols first (longer names first to avoid partial replacement)
     const sortedSymbols = Array.from(symbols.keys()).sort((a, b) => b.length - a.length);
+    const escapeRegex = (s: string) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
     for (const sym of sortedSymbols) {
       const val = symbols.get(sym)!;
-      const re = new RegExp(`\\b${sym}\\b`, 'gi');
+      const re = new RegExp(`(?<![A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ])${escapeRegex(sym)}(?![A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ])`, 'giu');
       processed = processed.replace(re, `(${val})`);
     }
 
@@ -227,11 +228,12 @@ export class Assembler8085 {
     while (resolvedAny && passes < 10) {
       resolvedAny = false;
       passes++;
+      const escapeRegex = (s: string) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
       defines.forEach((val, key) => {
         let newVal = val;
         defines.forEach((otherVal, otherKey) => {
           if (key !== otherKey) {
-            const re = new RegExp(`\\b${otherKey}\\b`, 'gi');
+            const re = new RegExp(`(?<![A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ])${escapeRegex(otherKey)}(?![A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ])`, 'giu');
             if (re.test(newVal)) {
               newVal = newVal.replace(re, otherVal);
               resolvedAny = true;
@@ -245,8 +247,9 @@ export class Assembler8085 {
     // Substitute defines into lines
     const substituteDefines = (text: string): string => {
       let res = text;
+      const escapeRegex = (s: string) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
       defines.forEach((val, key) => {
-        const regex = new RegExp(`\\b${key}\\b`, 'gi');
+        const regex = new RegExp(`(?<![A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ])${escapeRegex(key)}(?![A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ])`, 'giu');
         res = res.replace(regex, val);
       });
       return res;
@@ -284,23 +287,23 @@ export class Assembler8085 {
         continue;
       }
 
-      // Check for labels (e.g. "INICIO:" or "INICIO: MOV A, B")
+      // Check for labels (e.g. "INICIO:", "CONTRASEÑA:" or "INICIO: MOV A, B")
       let label: string | undefined;
-      const labelColonMatch = code.match(/^([A-Za-z0-9_]+):(.*)$/);
+      const labelColonMatch = code.match(/^([A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ]+):(.*)$/u);
       if (labelColonMatch) {
         label = labelColonMatch[1].toUpperCase();
         code = labelColonMatch[2].trim();
       } else {
-        // Detect labels containing invalid characters (e.g. 'ñ', accents, symbols)
-        const invalidLabelMatch = code.match(/^([^:\s]+):(.*)$/);
+        // Detect labels containing invalid characters (symbols, punctuation, emojis)
+        const invalidLabelMatch = code.match(/^([^:\s]+):(.*)$/u);
         if (invalidLabelMatch) {
           const candidate = invalidLabelMatch[1];
-          const nonAscii = candidate.match(/[^\x00-\x7F]/g);
-          if (nonAscii) {
-            const uniqueChars = Array.from(new Set(nonAscii)).join(', ');
+          const illegal = candidate.match(/[^A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ]/gu);
+          if (illegal) {
+            const uniqueChars = Array.from(new Set(illegal)).join(', ');
             diagnostics.push({
               line: lineNum,
-              message: `Carácter no permitido (${uniqueChars}) en la etiqueta '${candidate}'. En ensamblador 8085 solo se admiten letras estándar [A-Z], números [0-9] y guion bajo [_]`,
+              message: `Carácter no permitido (${uniqueChars}) en la etiqueta '${candidate}'. En ensamblador 8085 se admiten letras [A-Z, Ñ, vocales con tilde], números [0-9] y guion bajo [_]`,
               isError: true
             });
           }
