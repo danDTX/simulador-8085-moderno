@@ -5,6 +5,7 @@ export interface EditorTab {
   id: string;
   name: string;
   code: string;
+  cleanCode?: string;
   isDirty: boolean;
   fileHandle?: any;
   filePath?: string;
@@ -168,6 +169,7 @@ export class CodeEditor {
       id: 'tab_' + Date.now(),
       name: 'sin_titulo.asm',
       code: initialCode,
+      cleanCode: initialCode,
       isDirty: false
     };
     this.tabs = [initialTab];
@@ -1206,6 +1208,7 @@ export class CodeEditor {
     const cur = this.tabs.find(t => t.id === this.activeTabId);
     if (cur) {
       cur.code = code;
+      cur.cleanCode = code;
       cur.isDirty = false;
     }
     this.renderTabs();
@@ -1266,6 +1269,7 @@ export class CodeEditor {
     const existing = this.tabs.find(t => t.name === name);
     if (existing) {
       existing.code = code;
+      existing.cleanCode = code;
       if (fileHandle) existing.fileHandle = fileHandle;
       if (filePath) existing.filePath = filePath;
       existing.isDirty = false;
@@ -1276,6 +1280,7 @@ export class CodeEditor {
     if (this.tabs.length === 1 && !this.tabs[0].isDirty && this.tabs[0].code.trim().length <= 40 && this.tabs[0].name.startsWith('sin_titulo')) {
       this.tabs[0].name = name;
       this.tabs[0].code = code;
+      this.tabs[0].cleanCode = code;
       this.tabs[0].fileHandle = fileHandle;
       this.tabs[0].filePath = filePath;
       this.tabs[0].isDirty = false;
@@ -1287,6 +1292,7 @@ export class CodeEditor {
       id: 'tab_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
       name,
       code,
+      cleanCode: code,
       isDirty: false,
       fileHandle,
       filePath
@@ -1373,6 +1379,7 @@ export class CodeEditor {
         id: 'tab_' + Date.now(),
         name: 'sin_titulo.asm',
         code: '.org 0100H\n\nINICIO:\n    HLT\n',
+        cleanCode: '.org 0100H\n\nINICIO:\n    HLT\n',
         isDirty: false
       };
       this.tabs.push(newTab);
@@ -1392,10 +1399,22 @@ export class CodeEditor {
       id: 'tab_' + Date.now(),
       name: tabName,
       code: tabCode,
+      cleanCode: tabCode,
       isDirty: false
     };
     this.tabs.push(newTab);
     this.switchTab(newTab.id);
+  }
+
+  public revertTab(tab: EditorTab): void {
+    tab.code = tab.cleanCode !== undefined ? tab.cleanCode : tab.code;
+    tab.isDirty = false;
+    if (tab.id === this.activeTabId) {
+      this.textarea.value = tab.code;
+      this.isDirty = false;
+      this.updateEditor();
+    }
+    this.renderTabs();
   }
 
   public updateCursorPos(): void {

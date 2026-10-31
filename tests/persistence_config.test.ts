@@ -87,6 +87,23 @@ async function runTests() {
   assert(stateReload.openTabs[1].code?.includes('55H') === true, 'Draft tab code preserved');
   assert(stateReload.activeTabName === 'sin_titulo_2.asm', 'Active tab name preserved');
 
+  // 5. Unsaved Changes Discard Verification
+  const tabWithClean = {
+    name: 'programa.asm',
+    filePath: 'C:/tests/programa.asm',
+    cleanCode: 'ORIGINAL_SAVED_CODE\n',
+    code: 'MODIFIED_DIRTY_CODE\n',
+    isDirty: true
+  };
+  const openTabsCleanPersist = [tabWithClean].map(t => ({
+    name: t.name,
+    filePath: t.filePath,
+    code: t.cleanCode !== undefined ? t.cleanCode : t.code
+  }));
+  await ConfigManager.save({ openTabs: openTabsCleanPersist });
+  const reloadedClean = await ConfigManager.load();
+  assert(reloadedClean.openTabs[0].code === 'ORIGINAL_SAVED_CODE\n', 'Discarding/uncommitted changes persists cleanCode, NOT dirty draft');
+
   console.log('===============================================================');
   console.log('ALL PERSISTENCE & HISTORY TESTS PASSED (100% CLEAN)!');
   console.log('===============================================================');

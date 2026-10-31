@@ -160,14 +160,13 @@ class SimulatorApp {
     editorContainer.style.height = '100%';
 
     this.editor = new CodeEditor(editorContainer, '', {
-      onChange: (code) => this.scheduleAutoSave(code),
-      onTabChange: (filename, code) => {
+      onTabChange: (filename) => {
         this.currentFileName = filename;
         this.winManager.setWindowTitle('editor', `Editor ASM - [${filename}] (F9 Ensamblar)`);
         try {
           localStorage.setItem('sim8085_current_filename', filename);
         } catch {}
-        this.scheduleAutoSave(code);
+        this.saveAppState();
       },
       onWordWrapChange: () => {
         this.saveAppState();
@@ -563,7 +562,7 @@ class SimulatorApp {
     const openTabs: OpenTabConfig[] = this.editor.tabs.map(t => ({
       name: t.name,
       filePath: t.filePath,
-      code: t.code
+      code: t.cleanCode !== undefined ? t.cleanCode : t.code
     }));
     const curTab = this.editor.getActiveTab();
     const activeTabName = curTab ? curTab.name : (this.currentFileName || 'sin_titulo.asm');
@@ -1535,6 +1534,7 @@ class SimulatorApp {
       if (winNeu && winNeu.filesystem) {
         try {
           await winNeu.filesystem.writeFile(curTab.filePath, content);
+          curTab.cleanCode = content;
           curTab.isDirty = false;
           this.editor.isDirty = false;
           this.editor.renderTabs();
@@ -1556,6 +1556,7 @@ class SimulatorApp {
         await writable.write(content);
         await writable.close();
 
+        curTab.cleanCode = content;
         curTab.isDirty = false;
         this.editor.isDirty = false;
         this.editor.renderTabs();
@@ -1581,6 +1582,7 @@ class SimulatorApp {
           const fileName = targetPath.split(/[\\/]/).pop() || curTab.name;
           curTab.name = fileName;
           this.setCurrentFileName(fileName);
+          curTab.cleanCode = content;
           curTab.isDirty = false;
           this.editor.isDirty = false;
           this.editor.renderTabs();
@@ -1619,6 +1621,7 @@ class SimulatorApp {
         const file = await handle.getFile();
         curTab.name = file.name;
         this.setCurrentFileName(file.name);
+        curTab.cleanCode = content;
         curTab.isDirty = false;
         this.editor.isDirty = false;
         this.editor.renderTabs();
@@ -1639,6 +1642,7 @@ class SimulatorApp {
     a.download = curTab.name || 'programa.asm';
     a.click();
     URL.revokeObjectURL(url);
+    curTab.cleanCode = content;
     curTab.isDirty = false;
     this.editor.isDirty = false;
     this.editor.renderTabs();
@@ -1648,8 +1652,8 @@ class SimulatorApp {
   }
 
   public async handleAppExit(): Promise<void> {
-    await this.saveAppState();
     if (!this.editor.hasUnsavedChanges()) {
+      await this.saveAppState();
       this.exitApp();
       return;
     }
@@ -1673,23 +1677,25 @@ class SimulatorApp {
           return;
         }
       }
+      await this.saveAppState();
       this.exitApp();
       return;
     }
 
     if (action === 'discard') {
+      for (const tab of unsaved) {
+        this.editor.revertTab(tab);
+      }
+      try {
+        localStorage.removeItem('sim8085_saved_code');
+      } catch {}
+      await this.saveAppState();
       this.exitApp();
       return;
     }
   }
 
   private async exitApp(): Promise<void> {
-    try {
-      await this.saveAppState();
-    } catch (e) {
-      console.warn('saveAppState error during exit:', e);
-    }
-
     const winNeu = (window as any).Neutralino;
     if (winNeu && winNeu.app && typeof winNeu.app.exit === 'function') {
       try {
@@ -1807,8 +1813,6 @@ class SimulatorApp {
     this.winManager.setWindowTitle('editor', `Editor ASM - [${name}] (F9 Ensamblar)`);
   }
 
-  private autoSaveTimeout: any = null;
-
   public saveToStorage(code?: string): void {
     const text = (code !== undefined) ? code : this.editor.getValue();
     try {
@@ -1816,14 +1820,6 @@ class SimulatorApp {
     } catch (e) {
       console.warn('No se pudo guardar en localStorage:', e);
     }
-  }
-
-  public scheduleAutoSave(code: string): void {
-    if (this.autoSaveTimeout) clearTimeout(this.autoSaveTimeout);
-    this.autoSaveTimeout = setTimeout(() => {
-      this.saveToStorage(code);
-      this.saveAppState();
-    }, 300);
   }
 
   private currentZoom: number = 1.0;

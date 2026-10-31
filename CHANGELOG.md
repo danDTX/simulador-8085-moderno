@@ -4,6 +4,21 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.9] - 2026-10-31
+
+### 💾 Eliminación del Autoguardado Continuo y Corrección Definitiva del Descarte de Cambios
+- **⚡ Eliminación del Autoguardado Continuo en Edición:**
+  - Se eliminó el temporizador de 300 ms (`scheduleAutoSave`) que sobrescribía el almacenamiento de sesión en disco (`sim8085_config.json`) y `localStorage` con cada pulsación de tecla.
+  - El editor adopta el estándar natural de herramientas de desarrollo profesionales (como VS Code): las modificaciones permanecen de forma ligera en memoria RAM con indicador visual `•` de cambios pendientes, sin realizar escrituras innecesarias en disco mientras se escribe.
+- **🗑️ Descarte de Cambios 100% Efectivo al Salir:**
+  - **Causa Raíz:** Al cerrar la ventana y pulsar *"Descartar Cambios"*, la rutina de salida `exitApp()` llamaba incondicionalmente a `saveAppState()`, volviendo a guardar el borrador sucio en el archivo de sesión `sim8085_config.json`, lo que provocaba que al reabrir la app el documento modificado reapareciera como si se hubiera guardado.
+  - **Solución:**
+    - Al pulsar *"Descartar Cambios"*, se ejecuta `editor.revertTab(tab)`, restaurando el código al estado limpio original del archivo en disco (`cleanCode`) y removiendo cualquier borrador residual de `localStorage`.
+    - `saveAppState()` ahora persiste únicamente el código limpio validado (`cleanCode`), garantizando que los cambios descartados nunca contaminen la sesión ni se almacenen involuntariamente.
+    - Los archivos físicos en disco permanecen completamente intactos y sin alteraciones cuando el usuario elige descartar.
+
+---
+
 ## [1.9.8] - 2026-10-30
 
 ### ⚡ Corrección y Calibración Integral del Sistema de Interrupciones (TRAP, RST 7.5, RST 6.5, RST 5.5)

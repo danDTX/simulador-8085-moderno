@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
   "applicationId": "edu.microprocesadores.sim8085",
-  "version": "1.9.8",
+  "version": "1.9.9",
   "defaultMode": "window",
   "port": 38085,
   "documentRoot": "/web/",
