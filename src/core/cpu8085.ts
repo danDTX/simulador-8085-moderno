@@ -235,6 +235,10 @@ export class Intel8085 {
     if (this.interrupts.trap) {
       this.interrupts.trap = false;
       this.halted = false;
+      // Do not NOP-slide into adjacent vectors if vector is unhandled (empty/NOP)
+      if (this.memory[0x0024] === 0x00) {
+        return false;
+      }
       this.pushWord(this.regs.pc);
       this.regs.pc = 0x0024;
       return true;
@@ -245,6 +249,10 @@ export class Intel8085 {
       this.interrupts.rst75 = false;
       this.interrupts.inte = false;
       this.halted = false;
+      if (this.memory[0x003c] === 0x00) {
+        this.interrupts.inte = true;
+        return false;
+      }
       this.pushWord(this.regs.pc);
       this.regs.pc = 0x003c;
       return true;
@@ -253,6 +261,10 @@ export class Intel8085 {
       this.interrupts.rst65 = false;
       this.interrupts.inte = false;
       this.halted = false;
+      if (this.memory[0x0034] === 0x00) {
+        this.interrupts.inte = true;
+        return false;
+      }
       this.pushWord(this.regs.pc);
       this.regs.pc = 0x0034;
       return true;
@@ -261,6 +273,10 @@ export class Intel8085 {
       this.interrupts.rst55 = false;
       this.interrupts.inte = false;
       this.halted = false;
+      if (this.memory[0x002c] === 0x00) {
+        this.interrupts.inte = true;
+        return false;
+      }
       this.pushWord(this.regs.pc);
       this.regs.pc = 0x002c;
       return true;
@@ -269,8 +285,13 @@ export class Intel8085 {
       this.interrupts.intr = false;
       this.interrupts.inte = false;
       this.halted = false;
+      const targetVec = this.interrupts.intrVector & 0xffff;
+      if (this.memory[targetVec] === 0x00) {
+        this.interrupts.inte = true;
+        return false;
+      }
       this.pushWord(this.regs.pc);
-      this.regs.pc = this.interrupts.intrVector & 0xffff;
+      this.regs.pc = targetVec;
       return true;
     }
     return false;

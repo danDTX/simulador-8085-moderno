@@ -75,6 +75,21 @@ assert.strictEqual(cpu.interrupts.rst55, true, 'RST 5.5 must trigger when switch
 assert.strictEqual(cpu.interrupts.rst75, false, 'RST 7.5 must NOT trigger when keyboard is set to 5.5');
 console.log('✅ [PASS] Switching from 7.5 to 5.5 strictly triggers ONLY 5.5 without ghost 7.5 interrupts');
 
+// 4.5. NOP-Slide Prevention: Unhandled vector must NOT slide into adjacent vector
+const slideCpu = new Intel8085();
+slideCpu.interrupts.inte = true;
+// Define ISR only at 003CH (RST 7.5)
+slideCpu.memory[0x003C] = 0x3E; // MVI A, 99H
+slideCpu.memory[0x003D] = 0x99;
+slideCpu.memory[0x003E] = 0xC9; // RET
+// 0034H (RST 6.5) and 002CH (RST 5.5) are empty (00H)
+slideCpu.regs.pc = 0x0100;
+slideCpu.interrupts.rst65 = true; // Trigger 6.5
+const accepted65 = slideCpu.checkInterrupts();
+assert.strictEqual(accepted65, false, 'Unhandled RST 6.5 (vector 0034H = 00H) must NOT accept/jump');
+assert.strictEqual(slideCpu.regs.pc, 0x0100, 'PC must stay at 0100H, preventing NOP-slide into 003CH');
+console.log('✅ [PASS] Unhandled vectors (6.5 / 5.5) safely prevent NOP-slide into 003CH');
+
 // 5. Execution of ISRs for all 4 interrupt vectors (TRAP, RST 7.5, RST 6.5, RST 5.5)
 const testVectors = [
   { name: 'TRAP', vector: 0x0024, trigger: () => { cpu.interrupts.trap = true; }, needsEI: false },
