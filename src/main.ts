@@ -1719,6 +1719,15 @@ class SimulatorApp {
         return '';
       }
     });
+
+    window.addEventListener('pagehide', () => {
+      const winNeu = (window as any).Neutralino;
+      if (winNeu && winNeu.app && typeof winNeu.app.exit === 'function') {
+        try {
+          winNeu.app.exit();
+        } catch {}
+      }
+    });
   }
 
   private async exportObjectFile(): Promise<void> {
@@ -1876,6 +1885,10 @@ class SimulatorApp {
         } else if (e.key === '0') {
           e.preventDefault();
           this.applyZoom(0);
+          return;
+        } else if (e.key.toLowerCase() === 'r') {
+          // Bloquear recarga accidental del navegador (Ctrl+R / Ctrl+Shift+R) que invalidaría la sesión nativa
+          e.preventDefault();
           return;
         }
       }

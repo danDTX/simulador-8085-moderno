@@ -4,6 +4,21 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.9.11] - 2026-11-02
+
+### 🛡️ Blindaje de Conexión Nativa Neutralino y Prevención Definitiva de `NE_CL_IVCTOKN`
+- **🌐 Asignación de Puerto Efímero Dinámico (`"port": 0`):**
+  - Se eliminó el amarre al puerto estático `38085` en `neutralino.config.json`.
+  - El sistema operativo ahora asigna un puerto libre aleatorio en cada inicio del simulador, erradicando al 100% las colisiones de puertos producidas al abrir múltiples instancias o por procesos zombies residuales.
+- **🔓 Flexibilización del Token de Sesión (`"tokenSecurity": "loose"`):**
+  - Se reemplazó el esquema restrictivo `"one-time"` por `"loose"`, permitiendo reconexiones seguras del WebView2 sin invalidar la comunicación con el núcleo C++.
+- **🛑 Bloqueo de Recarga Accidental (`Ctrl+R` / `Ctrl+Shift+R`):**
+  - Se interceptaron las combinaciones de teclas de recarga del navegador en `setupShortcuts()`, evitando que una pulsación inadvertida reinicie el WebView2.
+- **🧹 Terminación Limpia y Garante de Procesos (`pagehide` Fallback):**
+  - Se incorporó un escuchador en el evento de descarga de ventana (`pagehide`) para asegurar que la orden `Neutralino.app.exit()` se transmita siempre al proceso C++, evitando procesos huérfanos en segundo plano.
+
+---
+
 ## [1.9.10] - 2026-10-31
 
 ### 🔌 Control 100% Manual de Interrupciones y Eliminación de Auto-detección Fantasma

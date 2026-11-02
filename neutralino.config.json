@@ -1,14 +1,14 @@
 {
   "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
   "applicationId": "edu.microprocesadores.sim8085",
-  "version": "1.9.10",
+  "version": "1.9.11",
   "defaultMode": "window",
-  "port": 38085,
+  "port": 0,
   "documentRoot": "/web/",
   "url": "/",
   "enableServer": true,
   "enableNativeAPI": true,
-  "tokenSecurity": "one-time",
+  "tokenSecurity": "loose",
   "logging": {
     "enabled": false,
     "writeToLogFile": false
