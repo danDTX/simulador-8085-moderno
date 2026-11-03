@@ -1,4 +1,5 @@
 import { Intel8085 } from './cpu8085.js';
+import { Logger } from './logger.js';
 
 export type AutoInterruptMode = 'no' | 'invalid_inst' | 'keyboard' | 'timer';
 
@@ -199,6 +200,7 @@ export class PeripheralsManager {
     this.state.currentKeyLabel = char === '\r' ? 'ENTER' : char === '\x1b' ? 'ESC' : char;
 
     // Single source of truth: Keyboard interrupt dispatched strictly according to user selection
+    Logger.debug('KEYPAD', `Tecla pulsada '${char}' (0x${code.toString(16).toUpperCase()}), disparando interrupción: ${this.state.keyboardInterruptType}`);
     switch (this.state.keyboardInterruptType) {
       case 'TRAP':
         this.cpu.interrupts.trap = true;
@@ -224,6 +226,7 @@ export class PeripheralsManager {
   }
 
   public setKeyboardInterrupt(type: '5.5' | '6.5' | '7.5' | 'TRAP' | 'INTR' | 'NONE'): void {
+    Logger.info('INTERRUPT', `Interrupción de teclado seleccionada: ${type}`);
     this.state.keyboardInterruptType = type;
     this.state.autoInterrupts.trap.mode = (type === 'TRAP') ? 'keyboard' : 'no';
     this.state.autoInterrupts.rst75.mode = (type === '7.5') ? 'keyboard' : 'no';

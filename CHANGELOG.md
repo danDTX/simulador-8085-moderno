@@ -4,6 +4,23 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.10.0] - 2026-11-02
+
+### 🛫 Sistema de Registro y Telemetría Local (Flight Recorder) y Desbloqueo Definitivo del Cierre
+- **🔓 Desbloqueo Total del Cierre por la "X" (Eliminación de la Intercepción Silenciosa de `beforeunload`):**
+  - **Causa Raíz:** Cuando el usuario tenía cambios en el editor (`isDirty = true`), el evento web `beforeunload` llamaba a `e.preventDefault()`. En WebView2 incrustado sin diálogos nativos del navegador, esto cancelaba y abortaba en silencio el cierre de la ventana, impidiendo que Neutralino recibiera la orden y emitiera `windowClose`. En consecuencia, el modal de confirmación nunca se mostraba y la ventana se quedaba colgada.
+  - **Solución:** Se retiró la llamada a `preventDefault()` en `beforeunload`. Ahora, al hacer clic en la `X`, el evento fluye con pureza directa hacia el manejador nativo `windowClose` de Neutralino, desplegando de inmediato el diálogo modal de confirmación (`showUnsavedChangesDialog`) con opciones de Guardar, Descartar o Cancelar.
+- **🛰️ Sistema Flight Recorder de Registro Continuo en Memoria RAM (`Logger`):**
+  - Búfer circular estricto de los últimos 1000 eventos en memoria RAM, con cero impacto en disco y sin ralentizar los ciclos de la CPU.
+  - Formato estandarizado con marca de tiempo precisa: `[YYYY-MM-DD HH:mm:ss.SSS] [NIVEL] [CATEGORÍA] Mensaje`.
+  - Captura automática global de errores no capturados (`window.onerror`) y rechazo de promesas (`unhandledrejection`).
+  - Registro de hitos del ciclo de vida (`LIFECYCLE`), ensamblado (`ASM`), interrupciones (`INTERRUPT`), teclado virtual (`KEYPAD`) y salida del programa.
+- **📋 Herramientas de Diagnóstico Cero Fricción en el Menú Ayuda:**
+  - `Ayuda -> 📋 Copiar Log de Diagnóstico`: Copia instantáneamente el reporte completo de los 1000 eventos al portapapeles del sistema para pegarlo con un clic en WhatsApp, Telegram o GitHub Issues.
+  - `Ayuda -> 📁 Guardar Log (sim8085.log)...`: Guarda el volcado de texto directamente en disco en el archivo `sim8085.log`.
+
+---
+
 ## [1.9.11] - 2026-11-02
 
 ### 🛡️ Blindaje de Conexión Nativa Neutralino y Prevención Definitiva de `NE_CL_IVCTOKN`

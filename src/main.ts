@@ -5,7 +5,8 @@ import { MDIWindowManager } from './ui/windowManager.js';
 import { CodeEditor, EditorTab } from './ui/editor.js';
 import { showUnsavedChangesDialog } from './ui/dialogs/unsavedChangesDialog.js';
 import { showAboutDialog } from './ui/dialogs/aboutDialog.js';
-import { checkGitHubRelease, UpdateInfo } from './core/updateManager.js';
+import { checkGitHubRelease, UpdateInfo, APP_VERSION } from './core/updateManager.js';
+import { Logger } from './core/logger.js';
 import { showUpdateDialog } from './ui/dialogs/updateDialog.js';
 import { createMainConsolePanel } from './ui/panels/mainConsolePanel.js';
 import { createVirtualKeyboardPanel, VirtualKeyboardInstance } from './ui/panels/virtualKeyboardPanel.js';
@@ -57,6 +58,9 @@ class SimulatorApp {
   private splitRatio: number = 0.5;
 
   constructor() {
+    Logger.init(APP_VERSION);
+    Logger.info('LIFECYCLE', `Iniciando SimulatorApp v${APP_VERSION}`);
+
     const winNeu = (window as any).Neutralino;
     if (winNeu && typeof winNeu.init === 'function') {
       try {
@@ -662,10 +666,12 @@ class SimulatorApp {
 
     if (!result.success) {
       const err = result.diagnostics.find(d => d.isError);
+      Logger.warn('ASM', `Error de ensamblado en línea ${err?.line}: ${err?.message}`);
       this.editor.setStatus(`Error línea ${err?.line}: ${err?.message}`, true, false, err?.line);
       return false;
     }
 
+    Logger.info('ASM', `Ensamblado exitoso: ${result.codeAddresses.size} instrucciones/bytes, entryPoint 0x${result.entryPoint.toString(16).toUpperCase().padStart(4, '0')}`);
     this.lastAssemblyResult = result;
 
     // Load to RAM
@@ -1387,6 +1393,24 @@ class SimulatorApp {
     document.getElementById('menu-help-instructions')?.addEventListener('click', () => {
       this.openInstructionsDictionaryWindow();
     });
+    document.getElementById('menu-help-copy-log')?.addEventListener('click', async () => {
+      const success = await Logger.copyToClipboard();
+      if (success) {
+        this.editor.setStatus('📋 Log de diagnóstico copiado al portapapeles');
+      } else {
+        this.editor.setStatus('⚠️ No se pudo copiar el log. Usa "Guardar Log".');
+      }
+    });
+
+    document.getElementById('menu-help-save-log')?.addEventListener('click', async () => {
+      const success = await Logger.saveToFile();
+      if (success) {
+        this.editor.setStatus('📁 Log guardado en sim8085.log');
+      } else {
+        this.editor.setStatus('⚠️ No se pudo guardar el archivo de log');
+      }
+    });
+
     document.getElementById('menu-help-check-updates')?.addEventListener('click', async () => {
       const btn = document.getElementById('menu-help-check-updates');
       const originalText = btn ? btn.textContent : '';
@@ -1638,21 +1662,27 @@ class SimulatorApp {
   }
 
   public async handleAppExit(): Promise<void> {
-    if (!this.editor.hasUnsavedChanges()) {
+    const hasUnsaved = this.editor.hasUnsavedChanges();
+    Logger.info('LIFECYCLE', `handleAppExit invocado. hasUnsavedChanges=${hasUnsaved}`);
+
+    if (!hasUnsaved) {
       await this.saveAppState();
       this.exitApp();
       return;
     }
 
     const unsaved = this.editor.getUnsavedTabs();
+    Logger.info('LIFECYCLE', `Mostrando showUnsavedChangesDialog para ${unsaved.length} archivo(s) modificado(s)`);
     const action = await showUnsavedChangesDialog({
       title: 'Archivos con cambios no guardados',
       message: 'Los siguientes archivos tienen modificaciones que no se han guardado. ¿Deseas guardarlas antes de salir?',
       files: unsaved,
       saveButtonText: unsaved.length > 1 ? 'Guardar Todo y Salir' : 'Guardar y Salir'
     });
+    Logger.info('LIFECYCLE', `Acción elegida en diálogo de salida: '${action}'`);
 
     if (action === 'cancel') {
+      Logger.info('LIFECYCLE', 'Salida cancelada por el usuario');
       return;
     }
 
@@ -1660,6 +1690,7 @@ class SimulatorApp {
       for (const tab of unsaved) {
         const saved = await this.saveAsmFile(false, tab);
         if (!saved) {
+          Logger.warn('LIFECYCLE', `Guardado cancelado o fallido para pestaña ${tab.name}. Salida detenida.`);
           return;
         }
       }
@@ -1682,12 +1713,13 @@ class SimulatorApp {
   }
 
   private async exitApp(): Promise<void> {
+    Logger.info('LIFECYCLE', 'exitApp ejecutado: solicitando cierre a Neutralino');
     const winNeu = (window as any).Neutralino;
     if (winNeu && winNeu.app && typeof winNeu.app.exit === 'function') {
       try {
         await winNeu.app.exit();
       } catch (e) {
-        console.warn('winNeu.app.exit error:', e);
+        Logger.warn('LIFECYCLE', `winNeu.app.exit advertencia: ${e}`);
       }
     }
 
@@ -1700,27 +1732,30 @@ class SimulatorApp {
     const winNeu = (window as any).Neutralino;
     if (winNeu && winNeu.events && typeof winNeu.events.on === 'function') {
       winNeu.events.on('windowClose', async () => {
+        Logger.info('LIFECYCLE', 'Evento windowClose recibido de Neutralino (clic en X de la ventana)');
         try {
           await this.handleAppExit();
         } catch (e) {
-          console.error('Error handling windowClose:', e);
+          Logger.error('LIFECYCLE', `Error manejando windowClose: ${e}`);
           this.exitApp();
         }
       });
     }
 
-    window.addEventListener('beforeunload', (e) => {
+    window.addEventListener('beforeunload', () => {
+      Logger.info('LIFECYCLE', 'Evento beforeunload recibido de WebView2');
       try {
         this.saveAppState();
-      } catch {}
-      if (this.editor && this.editor.hasUnsavedChanges()) {
-        e.preventDefault();
-        e.returnValue = '';
-        return '';
+      } catch (err) {
+        Logger.warn('LIFECYCLE', `Fallo saveAppState en beforeunload: ${err}`);
       }
+      // CRÍTICO: No llamar a e.preventDefault() ni asignar e.returnValue aquí.
+      // En Edge WebView2 embebido, preventDefault cancela silenciosamente el cierre
+      // e impide que Neutralino dispare el evento nativo windowClose para mostrar el diálogo.
     });
 
     window.addEventListener('pagehide', () => {
+      Logger.info('LIFECYCLE', 'Evento pagehide recibido - asegurando salida limpia');
       const winNeu = (window as any).Neutralino;
       if (winNeu && winNeu.app && typeof winNeu.app.exit === 'function') {
         try {
