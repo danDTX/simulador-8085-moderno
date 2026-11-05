@@ -6,6 +6,16 @@ Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del 
 
 ## 🚀 Características Principales
 
+- **🛡️ Blindaje Definitivo de Cierre y Prevención de Procesos Zombis (v1.10.1):**
+  - **Doble Enlace Garantizado de `windowClose`:** Suscripción dual (síncrona de arranque + confirmación post-handshake `'ready'`) que asegura la captura del clic en la `[X]` en cualquier equipo y bajo cualquier carga o antivirus.
+  - **Pausa Automática de la CPU al Salir:** Congela inmediatamente el bucle de 300,000 ciclos/s de la máquina virtual al intentar cerrar, liberando el hilo principal para desplegar con fluidez instantánea el diálogo modal de cambios sin guardar.
+  - **Destrucción Atómica de Procesos:** Secuencia encadenada `Neutralino.app.exit()` + `Neutralino.window.destroy()` para garantizar cero procesos huérfanos en segundo plano.
+
+- **🛫 Flight Recorder de Telemetría Local y Menú de Diagnóstico (v1.10.0):**
+  - **Búfer Circular en Memoria RAM:** Registro en tiempo real de las últimas 1000 trazas y eventos del sistema (ciclo de vida, compilación, interrupciones, periféricos y excepciones) con consumo ultrabajo (~120 KB) y sin desgaste de disco.
+  - **Herramientas en Menú Ayuda:** `Ayuda -> 📋 Copiar Log de Diagnóstico` para compartir al portapapeles en un clic y `Ayuda -> 📁 Guardar Log...` para exportar a archivo `.log`.
+  - **Protección Segura de Cambios:** Diálogo modal nativo que gestiona el guardado, descarte o cancelación de cambios antes de salir sin interferencias del navegador.
+
 - **🔄 Motor de Auto-Actualización Transparente (v1.9.0):**
   - **Sincronización Automática con GitHub Releases:** Detección en segundo plano de nuevas versiones publicadas en el repositorio oficial ([danDTX/simulador-8085-moderno](https://github.com/danDTX/simulador-8085-moderno)) y búsqueda manual en `Ayuda -> Buscar Actualizaciones...`.
   - **Actualización y Reinicio en 1 Clic:** Descarga con barra de progreso en tiempo real y script de relevo seguro (`updater.bat`) que resuelve bloqueos de archivos en Windows, preserva la configuración del alumno (`sim8085_config.json`) y relanza la nueva versión de forma instantánea.
@@ -28,7 +38,7 @@ Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del 
 - **Parche de Confiabilidad de Sistema y Selector de Archivos (v1.6.1):**
   - **Selector Nativo en Primer Plano Garantizado:** Eliminación del bug de ventanas en segundo plano (`Issue #715`), asegurando que el diálogo de abrir archivo aparezca siempre al frente.
   - **Arrastrar y Soltar (*Drag & Drop*):** Carga instantánea de archivos `.asm`, `.s` y `.txt` soltándolos directamente sobre cualquier parte de la ventana.
-  - **Cierre Instantáneo sin Bloqueos (`exitProcessOnClose: true`):** El botón `[X]` de la ventana termina el proceso de forma inmediata y limpia, sin requerir el Administrador de Tareas.
+  - **Terminación Limpia de Procesos:** Cierre seguro y liberación de recursos en segundo plano sin dejar procesos bloqueados en el Administrador de Tareas.
 
 - **Optimización Térmica y Fidelidad de Hardware (v1.6.0):**
   - **Coalescencia Gráfica a 60 FPS con `requestAnimationFrame`:** Notificaciones de periféricos desacopladas del ciclo síncrono de máquina, reduciendo el consumo de CPU de 100% a <1.5% en bucles continuos (laptop fría y silenciosa).
