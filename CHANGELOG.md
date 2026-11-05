@@ -4,6 +4,19 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.10.1] - 2026-11-05
+
+### 🛡️ Blindaje Definitivo del Cierre por la "X" y Prevención de Procesos Zombis
+- **🔗 Doble Enlace Garantizado de `windowClose` (`ready` + arranque síncrono):**
+  - **Causa Raíz:** En equipos con conexiones loopback lentas o antivirus estrictos, la vinculación síncrona inicial de eventos en el constructor ocurría antes de que el WebSocket de Neutralino finalizara el handshake `'ready'`, provocando la pérdida silenciosa de la captura del evento `windowClose`.
+  - **Solución:** Se implementó una doble vinculación garantizada: se registra el evento en el arranque y se reasegura inmediatamente al dispararse el evento nativo `'ready'`.
+- **⏸️ Pausa Inmediata de la CPU al Iniciar la Secuencia de Cierre:**
+  - Al hacer clic en la "X" o activar la salida, se ejecuta `this.pauseRun()` para congelar el hilo de emulación de la CPU (evitando contención con el bucle continuo de 4,800 ciclos/16ms) y desplegar instantáneamente el diálogo modal `showUnsavedChangesDialog`.
+- **🧹 Terminación Limpia y Destrucción de Ventana (`winNeu.window.destroy` + `app.exit`):**
+  - Se reforzó `exitApp()` con llamada encadenada a la destrucción de la ventana y salida del proceso para garantizar que no queden procesos huérfanos o zombis en segundo plano en Windows.
+
+---
+
 ## [1.10.0] - 2026-11-02
 
 ### 🛫 Sistema de Registro y Telemetría Local (Flight Recorder) y Desbloqueo Definitivo del Cierre

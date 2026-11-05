@@ -1662,6 +1662,9 @@ class SimulatorApp {
   }
 
   public async handleAppExit(): Promise<void> {
+    if (this.isRunning) {
+      this.pauseRun();
+    }
     const hasUnsaved = this.editor.hasUnsavedChanges();
     Logger.info('LIFECYCLE', `handleAppExit invocado. hasUnsavedChanges=${hasUnsaved}`);
 
@@ -1714,12 +1717,22 @@ class SimulatorApp {
 
   private async exitApp(): Promise<void> {
     Logger.info('LIFECYCLE', 'exitApp ejecutado: solicitando cierre a Neutralino');
+    if (this.isRunning) {
+      this.pauseRun();
+    }
     const winNeu = (window as any).Neutralino;
-    if (winNeu && winNeu.app && typeof winNeu.app.exit === 'function') {
-      try {
-        await winNeu.app.exit();
-      } catch (e) {
-        Logger.warn('LIFECYCLE', `winNeu.app.exit advertencia: ${e}`);
+    if (winNeu) {
+      if (winNeu.app && typeof winNeu.app.exit === 'function') {
+        try {
+          await winNeu.app.exit();
+        } catch (e) {
+          Logger.warn('LIFECYCLE', `winNeu.app.exit advertencia: ${e}`);
+        }
+      }
+      if (winNeu.window && typeof winNeu.window.destroy === 'function') {
+        try {
+          await winNeu.window.destroy();
+        } catch {}
       }
     }
 
@@ -1730,15 +1743,24 @@ class SimulatorApp {
 
   private setupExitHandlers(): void {
     const winNeu = (window as any).Neutralino;
+    const onWindowCloseHandler = async () => {
+      Logger.info('LIFECYCLE', 'Evento windowClose recibido de Neutralino (clic en X de la ventana)');
+      try {
+        await this.handleAppExit();
+      } catch (e) {
+        Logger.error('LIFECYCLE', `Error manejando windowClose: ${e}`);
+        this.exitApp();
+      }
+    };
+
     if (winNeu && winNeu.events && typeof winNeu.events.on === 'function') {
-      winNeu.events.on('windowClose', async () => {
-        Logger.info('LIFECYCLE', 'Evento windowClose recibido de Neutralino (clic en X de la ventana)');
-        try {
-          await this.handleAppExit();
-        } catch (e) {
-          Logger.error('LIFECYCLE', `Error manejando windowClose: ${e}`);
-          this.exitApp();
-        }
+      // 1. Vinculación inicial síncrona
+      winNeu.events.on('windowClose', onWindowCloseHandler);
+
+      // 2. Vinculación de respaldo tras completarse el handshake del WebSocket ('ready')
+      winNeu.events.on('ready', () => {
+        Logger.info('LIFECYCLE', 'Neutralino evento ready recibido - asegurando enlace de windowClose');
+        winNeu.events.on('windowClose', onWindowCloseHandler);
       });
     }
 
@@ -1756,7 +1778,6 @@ class SimulatorApp {
 
     window.addEventListener('pagehide', () => {
       Logger.info('LIFECYCLE', 'Evento pagehide recibido - asegurando salida limpia');
-      const winNeu = (window as any).Neutralino;
       if (winNeu && winNeu.app && typeof winNeu.app.exit === 'function') {
         try {
           winNeu.app.exit();
