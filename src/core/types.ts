@@ -63,4 +63,5 @@ export interface CpuSnapshot {
   sidBit: boolean;
   sodBit: boolean;
   memWrites: MemWriteRecord[];
+  eiDelay: number;
 }

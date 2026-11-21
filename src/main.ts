@@ -51,6 +51,7 @@ class SimulatorApp {
   private lastAssemblyResult: AssemblyResult | null = null;
 
   private isRunning: boolean = false;
+  private isExiting: boolean = false;
   private runTimer: any = null;
   private executionIntervalMs: number = 16;
   private clockFrequencyHz: number = 300000;
@@ -74,6 +75,24 @@ class SimulatorApp {
     }
 
     this.perifs = new PeripheralsManager(this.cpu);
+
+    // Despertador automático de CPU en HLT ante interrupción externa (teclado/timer/hardware)
+    this.perifs.subscribe(() => {
+      if (this.cpu.halted && !this.isRunning) {
+        const hasPending = this.cpu.interrupts.trap ||
+          (this.cpu.interrupts.inte && (
+            (this.cpu.interrupts.rst75 && !this.cpu.interrupts.mask75) ||
+            (this.cpu.interrupts.rst65 && !this.cpu.interrupts.mask65) ||
+            (this.cpu.interrupts.rst55 && !this.cpu.interrupts.mask55) ||
+            this.cpu.interrupts.intr
+          ));
+        if (hasPending) {
+          Logger.info('CPU', 'Despertando CPU de HLT por interrupción externa');
+          this.cpu.halted = false;
+          this.startRun();
+        }
+      }
+    });
 
     const desktop = document.getElementById('mdi-desktop') as HTMLElement;
     const taskbar = document.getElementById('mdi-taskbar-items') as HTMLElement;
@@ -181,6 +200,7 @@ class SimulatorApp {
       onStepOver: () => this.stepOver(),
       onStepBack: () => this.stepBack(),
       onRun: () => this.toggleRun(),
+      onPause: () => this.pauseRun(),
       onReset: () => this.resetCpu(),
       onSave: () => this.saveAsmFile(),
       onSaveTab: async (tab) => this.saveAsmFile(false, tab),
@@ -463,7 +483,7 @@ class SimulatorApp {
     this.virtualKeyboardInstance = createVirtualKeyboardPanel(this.perifs);
     this.winManager.createWindow({
       id: 'virtual-keyboard',
-      title: 'Teclado (Asociado a Puerto 00H / RST 5.5 / TRAP)',
+      title: 'Teclado Virtual (ASCII)',
       icon: '⌨️',
       x: 120,
       y: 180,
@@ -474,7 +494,7 @@ class SimulatorApp {
       content: this.virtualKeyboardInstance.element,
       onClose: () => {
         this.virtualKeyboardInstance?.destroy();
-        this.virtualKeyboardInstance = null;
+        this.virtualKeyboardInstance = undefined;
       }
     });
     this.virtualKeyboardInstance.update();
@@ -678,6 +698,7 @@ class SimulatorApp {
     this.cpu.memory.set(result.memory);
     this.cpu.regs.pc = result.entryPoint;
     this.cpu.halted = false;
+    this.cpu.clearHistory();
 
     // Load full disassembled instruction list in the CPU console table
     this.mainConsole.refreshInstructions(result.codeAddresses, result.entryPoint);
@@ -740,9 +761,21 @@ class SimulatorApp {
   }
 
   public stepCpu(): void {
-    if (this.editor.needsAssemble || this.cpu.halted) {
+    if (this.editor.needsAssemble) {
       const ok = this.assembleCode();
       if (!ok) return;
+    } else if (this.cpu.halted) {
+      const hasPending = this.cpu.interrupts.trap ||
+        (this.cpu.interrupts.inte && (
+          (this.cpu.interrupts.rst75 && !this.cpu.interrupts.mask75) ||
+          (this.cpu.interrupts.rst65 && !this.cpu.interrupts.mask65) ||
+          (this.cpu.interrupts.rst55 && !this.cpu.interrupts.mask55) ||
+          this.cpu.interrupts.intr
+        ));
+      if (!hasPending) {
+        this.editor.setStatus('CPU en reposo (HLT). Inyecte una interrupción o pulse Reset (F2).');
+        return;
+      }
     }
 
     this.cpu.recordHistory = true;
@@ -758,9 +791,21 @@ class SimulatorApp {
   }
 
   public stepOver(): void {
-    if (this.editor.needsAssemble || this.cpu.halted) {
+    if (this.editor.needsAssemble) {
       const ok = this.assembleCode();
       if (!ok) return;
+    } else if (this.cpu.halted) {
+      const hasPending = this.cpu.interrupts.trap ||
+        (this.cpu.interrupts.inte && (
+          (this.cpu.interrupts.rst75 && !this.cpu.interrupts.mask75) ||
+          (this.cpu.interrupts.rst65 && !this.cpu.interrupts.mask65) ||
+          (this.cpu.interrupts.rst55 && !this.cpu.interrupts.mask55) ||
+          this.cpu.interrupts.intr
+        ));
+      if (!hasPending) {
+        this.editor.setStatus('CPU en reposo (HLT). Inyecte una interrupción o pulse Reset (F2).');
+        return;
+      }
     }
 
     this.cpu.recordHistory = true;
@@ -769,7 +814,7 @@ class SimulatorApp {
 
     // Check if opcode is CALL or conditional CALL
     // 0xCD: CALL (unconditional)
-    // 0xCC: CZ, 0xC4: CNZ, 0xDC: CC, 0xD4: CNC, 0xF4: CP, 0xFA: CM, 0xEC: CPE, 0xE4: CPO
+    // 0xCC: CZ, 0xC4: CNZ, 0xDC: CC, 0xD4: CNC, 0xF4: CP, 0xFC: CM, 0xEC: CPE, 0xE4: CPO
     let isCall = false;
     let willBranch = false;
 
@@ -783,7 +828,7 @@ class SimulatorApp {
     else if (op === 0xEC) { isCall = true; willBranch = this.cpu.flags.p; }
     else if (op === 0xE4) { isCall = true; willBranch = !this.cpu.flags.p; }
     else if (op === 0xF4) { isCall = true; willBranch = !this.cpu.flags.s; }
-    else if (op === 0xFA) { isCall = true; willBranch = this.cpu.flags.s; }
+    else if (op === 0xFC) { isCall = true; willBranch = this.cpu.flags.s; }
 
     if (!isCall || !willBranch) {
       this.stepCpu();
@@ -791,21 +836,29 @@ class SimulatorApp {
     }
 
     const returnAddr = (pc + 3) & 0xffff;
+    const initialSp = this.cpu.regs.sp;
     const maxInstructions = 300000;
     let executed = 0;
 
-    // Execute first instruction (the CALL itself)
+    // Execute first instruction (the CALL itself) with history enabled so Step Back can undo it
     this.cpu.step();
     executed++;
 
-    while (this.cpu.regs.pc !== returnAddr && !this.cpu.halted && executed < maxInstructions) {
-      // Check if internal breakpoint was reached
-      if (this.cpu.hasBreakpoint(this.cpu.regs.pc)) {
-        this.editor.setStatus(`Paso sobre subrutina pausado por punto de interrupción en ${this.cpu.regs.pc.toString(16).padStart(4, '0').toUpperCase()}H`);
-        break;
+    // Disable history recording during internal subroutine steps to avoid overwriting the 64-step ring buffer
+    this.cpu.recordHistory = false;
+
+    try {
+      while ((this.cpu.regs.pc !== returnAddr || this.cpu.regs.sp < initialSp) && !this.cpu.halted && executed < maxInstructions) {
+        // Check if internal breakpoint was reached
+        if (this.cpu.hasBreakpoint(this.cpu.regs.pc)) {
+          this.editor.setStatus(`Paso sobre subrutina pausado por punto de interrupción en ${this.cpu.regs.pc.toString(16).padStart(4, '0').toUpperCase()}H`);
+          break;
+        }
+        this.cpu.step();
+        executed++;
       }
-      this.cpu.step();
-      executed++;
+    } finally {
+      this.cpu.recordHistory = true;
     }
 
     const line = this.lastAssemblyResult?.addressToSourceLine.get(this.cpu.regs.pc) ?? -1;
@@ -844,7 +897,12 @@ class SimulatorApp {
   }
 
   public startRun(): void {
-    if (this.editor.needsAssemble || this.cpu.halted) {
+    if (this.isRunning) return;
+    if (this.runTimer !== null) {
+      clearInterval(this.runTimer);
+      this.runTimer = null;
+    }
+    if (this.editor.needsAssemble) {
       const ok = this.assembleCode();
       if (!ok) return;
     }
@@ -854,19 +912,23 @@ class SimulatorApp {
     const runBtn = document.getElementById('btn-run');
     if (runBtn) runBtn.textContent = '⏸️ Pausar (F5)';
 
+    let skipFirstBreakpoint = this.cpu.hasBreakpoint(this.cpu.regs.pc);
+
     this.runTimer = setInterval(() => {
       const targetCycles = Math.max(1, Math.round(this.clockFrequencyHz * (this.executionIntervalMs / 1000)));
       let cyclesRan = 0;
       while (cyclesRan < targetCycles) {
         if (this.cpu.halted) {
           this.pauseRun();
+          this.editor.setStatus('CPU en reposo (HLT) - Esperando interrupción externa (teclado/timer/RST)');
           break;
         }
-        if (this.cpu.hasBreakpoint(this.cpu.regs.pc)) {
+        if (!skipFirstBreakpoint && this.cpu.hasBreakpoint(this.cpu.regs.pc)) {
           this.pauseRun();
           this.editor.setStatus(`Pausado por punto de interrupción en ${this.cpu.regs.pc.toString(16).padStart(4, '0').toUpperCase()}H`);
           break;
         }
+        skipFirstBreakpoint = false;
         const c = this.cpu.step();
         cyclesRan += c;
       }
@@ -980,6 +1042,12 @@ class SimulatorApp {
   }
 
   public openMemoryWindow(): void {
+    if (this.winManager.hasWindow('memory-viewer')) {
+      this.winManager.bringToFront('memory-viewer');
+      this.winManager.restoreWindow('memory-viewer');
+      this.memPanelInstance?.update();
+      return;
+    }
     this.memPanelInstance = createMemoryPanel(this.cpu, () => this.updateAllViews());
     this.winManager.createWindow({
       id: 'memory-viewer',
@@ -991,11 +1059,20 @@ class SimulatorApp {
       height: 480,
       minWidth: 480,
       minHeight: 320,
-      content: this.memPanelInstance.element
+      content: this.memPanelInstance.element,
+      onClose: () => {
+        this.memPanelInstance = undefined;
+      }
     });
   }
 
   public openDisassemblerWindow(): void {
+    if (this.winManager.hasWindow('disassembler-view')) {
+      this.winManager.bringToFront('disassembler-view');
+      this.winManager.restoreWindow('disassembler-view');
+      this.disasmPanelInstance?.update();
+      return;
+    }
     this.disasmPanelInstance = createDisassemblerPanel(this.cpu);
     this.winManager.createWindow({
       id: 'disassembler-view',
@@ -1007,12 +1084,21 @@ class SimulatorApp {
       height: 480,
       minWidth: 440,
       minHeight: 300,
-      content: this.disasmPanelInstance.element
+      content: this.disasmPanelInstance.element,
+      onClose: () => {
+        this.disasmPanelInstance = undefined;
+      }
     });
     this.winManager.bringToFront('disassembler-view');
   }
 
   public openStackVisualizerWindow(): void {
+    if (this.winManager.hasWindow('stack-visualizer-view')) {
+      this.winManager.bringToFront('stack-visualizer-view');
+      this.winManager.restoreWindow('stack-visualizer-view');
+      this.stackPanelInstance?.update();
+      return;
+    }
     this.stackPanelInstance = createStackVisualizerPanel(this.cpu);
     this.winManager.createWindow({
       id: 'stack-visualizer-view',
@@ -1024,7 +1110,10 @@ class SimulatorApp {
       height: 460,
       minWidth: 420,
       minHeight: 280,
-      content: this.stackPanelInstance.element
+      content: this.stackPanelInstance.element,
+      onClose: () => {
+        this.stackPanelInstance = undefined;
+      }
     });
     this.winManager.bringToFront('stack-visualizer-view');
   }
@@ -1166,6 +1255,11 @@ class SimulatorApp {
   }
 
   public openFlowchartWindow(): void {
+    if (this.winManager.hasWindow('flowchart-view')) {
+      this.winManager.restoreWindow('flowchart-view');
+      this.winManager.bringToFront('flowchart-view');
+      return;
+    }
     this.flowchartPanelInstance = createFlowchartPanel(this.editor.getValue());
     this.winManager.createWindow({
       id: 'flowchart-view',
@@ -1177,7 +1271,10 @@ class SimulatorApp {
       height: 560,
       minWidth: 480,
       minHeight: 350,
-      content: this.flowchartPanelInstance.element
+      content: this.flowchartPanelInstance.element,
+      onClose: () => {
+        this.flowchartPanelInstance = undefined;
+      }
     });
     this.winManager.bringToFront('flowchart-view');
   }
@@ -1662,6 +1759,12 @@ class SimulatorApp {
   }
 
   public async handleAppExit(): Promise<void> {
+    if (this.isExiting) {
+      Logger.warn('LIFECYCLE', 'handleAppExit ya en progreso, ignorando llamada redundante.');
+      return;
+    }
+    this.isExiting = true;
+
     if (this.isRunning) {
       this.pauseRun();
     }
@@ -1670,7 +1773,7 @@ class SimulatorApp {
 
     if (!hasUnsaved) {
       await this.saveAppState();
-      this.exitApp();
+      await this.exitApp();
       return;
     }
 
@@ -1686,6 +1789,7 @@ class SimulatorApp {
 
     if (action === 'cancel') {
       Logger.info('LIFECYCLE', 'Salida cancelada por el usuario');
+      this.isExiting = false;
       return;
     }
 
@@ -1694,11 +1798,12 @@ class SimulatorApp {
         const saved = await this.saveAsmFile(false, tab);
         if (!saved) {
           Logger.warn('LIFECYCLE', `Guardado cancelado o fallido para pestaña ${tab.name}. Salida detenida.`);
+          this.isExiting = false;
           return;
         }
       }
       await this.saveAppState();
-      this.exitApp();
+      await this.exitApp();
       return;
     }
 
@@ -1710,7 +1815,7 @@ class SimulatorApp {
         localStorage.removeItem('sim8085_saved_code');
       } catch {}
       await this.saveAppState();
-      this.exitApp();
+      await this.exitApp();
       return;
     }
   }
@@ -1743,6 +1848,7 @@ class SimulatorApp {
 
   private setupExitHandlers(): void {
     const winNeu = (window as any).Neutralino;
+    let windowCloseRegistered = false;
     const onWindowCloseHandler = async () => {
       Logger.info('LIFECYCLE', 'Evento windowClose recibido de Neutralino (clic en X de la ventana)');
       try {
@@ -1754,13 +1860,17 @@ class SimulatorApp {
     };
 
     if (winNeu && winNeu.events && typeof winNeu.events.on === 'function') {
-      // 1. Vinculación inicial síncrona
+      // 1. Vinculación inicial síncrona si está disponible
       winNeu.events.on('windowClose', onWindowCloseHandler);
+      windowCloseRegistered = true;
 
-      // 2. Vinculación de respaldo tras completarse el handshake del WebSocket ('ready')
+      // 2. Vinculación de respaldo tras completarse el handshake del WebSocket ('ready') solo si no se registró antes
       winNeu.events.on('ready', () => {
-        Logger.info('LIFECYCLE', 'Neutralino evento ready recibido - asegurando enlace de windowClose');
-        winNeu.events.on('windowClose', onWindowCloseHandler);
+        Logger.info('LIFECYCLE', 'Neutralino evento ready recibido');
+        if (!windowCloseRegistered) {
+          winNeu.events.on('windowClose', onWindowCloseHandler);
+          windowCloseRegistered = true;
+        }
       });
     }
 
@@ -1979,8 +2089,9 @@ class SimulatorApp {
       const isInput = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
       const isMonaco = !!target?.closest('.monaco-editor');
       const isCrtScreen = target?.id === 'crt-screen';
+      const isModal = !!document.querySelector('.modal-backdrop, [role="dialog"], .modal-dialog');
 
-      if (!isInput && !isMonaco && !isCrtScreen && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (!isInput && !isMonaco && !isCrtScreen && !isModal && !e.ctrlKey && !e.altKey && !e.metaKey) {
         let char = e.key;
         if (char === 'Enter') char = '\r';
         else if (char === 'Escape') char = '\x1b';
@@ -1999,8 +2110,9 @@ class SimulatorApp {
       const isInput = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
       const isMonaco = !!target?.closest('.monaco-editor');
       const isCrtScreen = target?.id === 'crt-screen';
+      const isModal = !!document.querySelector('.modal-backdrop, [role="dialog"], .modal-dialog');
 
-      if (!isInput && !isMonaco && !isCrtScreen && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (!isInput && !isMonaco && !isCrtScreen && !isModal && !e.ctrlKey && !e.altKey && !e.metaKey) {
         this.perifs.releaseKey();
       }
     });

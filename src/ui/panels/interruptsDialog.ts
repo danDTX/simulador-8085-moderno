@@ -122,6 +122,21 @@ export function openInterruptsDialog(perifs: PeripheralsManager): void {
   bindRadioEnable('rad-rst65', 'inp-rst65-ms');
   bindRadioEnable('rad-rst55', 'inp-rst55-ms');
 
+  // Single-source keyboard assignment: selecting 'keyboard' in one column resets other columns to 'no'
+  overlay.querySelectorAll<HTMLInputElement>('input[value="keyboard"]').forEach(rad => {
+    rad.addEventListener('change', () => {
+      if (rad.checked) {
+        overlay.querySelectorAll<HTMLInputElement>('input[value="keyboard"]').forEach(other => {
+          if (other !== rad && other.checked) {
+            const colName = other.getAttribute('name');
+            const noRadio = overlay.querySelector<HTMLInputElement>(`input[name="${colName}"][value="no"]`);
+            if (noRadio) noRadio.checked = true;
+          }
+        });
+      }
+    });
+  });
+
   const closeDialog = () => {
     overlay.remove();
   };
@@ -160,7 +175,9 @@ export function openInterruptsDialog(perifs: PeripheralsManager): void {
       }
     };
 
-    if (newConfig.rst75.mode === 'keyboard') {
+    if (newConfig.trap.mode === 'keyboard') {
+      perifs.state.keyboardInterruptType = 'TRAP';
+    } else if (newConfig.rst75.mode === 'keyboard') {
       perifs.state.keyboardInterruptType = '7.5';
     } else if (newConfig.rst65.mode === 'keyboard') {
       perifs.state.keyboardInterruptType = '6.5';

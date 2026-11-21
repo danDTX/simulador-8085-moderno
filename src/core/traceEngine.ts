@@ -114,12 +114,30 @@ export function generateExecutionTrace(options: TraceOptions): TraceResult {
     pc: startPc
   };
   sim.flags = { s: false, z: false, ac: false, p: false, cy: false };
+  sim.interrupts = {
+    inte: false,
+    trap: false,
+    rst75: false,
+    rst65: false,
+    rst55: false,
+    intr: false,
+    intrVector: 0xcd,
+    mask75: false,
+    mask65: false,
+    mask55: false
+  };
+  sim.sidBit = options.cpu.sidBit;
+  sim.sodBit = options.cpu.sodBit;
   sim.recordHistory = false;
 
-  // Route port inputs from current simulator hardware state if configured
+  // Route port inputs from current hardware state, but keep port writes completely sandboxed
   if (options.cpu.onPortRead) {
     sim.onPortRead = options.cpu.onPortRead;
   }
+  const tracePortsOut = new Uint8Array(256);
+  sim.onPortWrite = (port: number, val: number) => {
+    tracePortsOut[port & 0xff] = val & 0xff;
+  };
 
   const rows: TraceRow[] = [];
 
@@ -330,6 +348,15 @@ export function generateCSV(rows: TraceRow[], useHexZero: boolean = false, delim
   return lines.join('\n');
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 /**
  * Generates a styled HTML table with green alternating rows and bright red highlights
  * compatible with MS Excel, LibreOffice Calc, and Google Sheets.
@@ -383,7 +410,7 @@ export function generateStyledHTMLTable(rows: TraceRow[], useHexZero: boolean = 
     };
 
     html += `    <tr class="${rowClass}">
-      ${td(r.code, false, 'code-col')}
+      ${td(escapeHtml(r.code), false, 'code-col')}
       ${td(formatRegVal(r.a, false, useHexZero), c.a)}
       ${td(formatRegVal(r.b, false, useHexZero), c.b)}
       ${td(formatRegVal(r.c, false, useHexZero), c.c)}

@@ -255,6 +255,11 @@ export function createMainConsolePanel(
     openInterruptsDialog(perifs);
   });
 
+  // Serial SID checkbox listener
+  panel.querySelector('#chk-sid')?.addEventListener('change', (e) => {
+    cpu.sidBit = (e.target as HTMLInputElement).checked;
+  });
+
   // Interrupt manual trigger checkboxes
   panel.querySelector('#chk-req-trap')?.addEventListener('change', (e) => {
     cpu.interrupts.trap = (e.target as HTMLInputElement).checked;
@@ -694,6 +699,8 @@ export function createMainConsolePanel(
     }
 
     // Serial
+    const chkSid = panel.querySelector('#chk-sid') as HTMLInputElement;
+    if (chkSid) chkSid.checked = cpu.sidBit;
     const chkSod = panel.querySelector('#chk-sod') as HTMLInputElement;
     if (chkSod) chkSod.checked = cpu.sodBit;
   };

@@ -50,6 +50,7 @@ export class Intel8085 {
   public onPortWrite?: (port: number, val: number) => void;
   public onMemoryWrite?: (addr: number, val: number) => void;
   public onInvalidOpcode?: (opcode: number, pc: number) => void;
+  private eiDelay: number = 0;
 
   private static parityTable: boolean[] = [];
 
@@ -98,6 +99,7 @@ export class Intel8085 {
     this.totalCycles = 0;
     this.sidBit = false;
     this.sodBit = false;
+    this.eiDelay = 0;
     this.clearHistory();
   }
 
@@ -138,6 +140,7 @@ export class Intel8085 {
     this.totalCycles = snap.totalCycles;
     this.sidBit = snap.sidBit;
     this.sodBit = snap.sodBit;
+    this.eiDelay = snap.eiDelay;
     return true;
   }
 
@@ -175,6 +178,18 @@ export class Intel8085 {
   public writeWord(addr: number, val: number): void {
     this.writeByte(addr, val & 0xff);
     this.writeByte(addr + 1, (val >> 8) & 0xff);
+  }
+
+  private nextByte(): number {
+    const val = this.readByte(this.regs.pc);
+    this.regs.pc = (this.regs.pc + 1) & 0xffff;
+    return val;
+  }
+
+  private nextWord(): number {
+    const val = this.readWord(this.regs.pc);
+    this.regs.pc = (this.regs.pc + 2) & 0xffff;
+    return val;
   }
 
   public getPSW(): number {
@@ -231,68 +246,78 @@ export class Intel8085 {
     return val;
   }
 
+  private isVectorEmpty(addr: number): boolean {
+    // Vector is considered empty only if 4 consecutive bytes are 0x00
+    // This allows legitimate ISRs starting with NOP (0x00) followed by JMP/code to execute
+    return this.memory[addr] === 0x00 &&
+           this.memory[(addr + 1) & 0xffff] === 0x00 &&
+           this.memory[(addr + 2) & 0xffff] === 0x00 &&
+           this.memory[(addr + 3) & 0xffff] === 0x00;
+  }
+
   public checkInterrupts(): boolean {
     if (this.interrupts.trap) {
-      this.interrupts.trap = false;
-      this.halted = false;
-      // Do not NOP-slide into adjacent vectors if vector is unhandled (empty/NOP)
-      if (this.memory[0x0024] === 0x00) {
-        return false;
+      if (this.isVectorEmpty(0x0024)) {
+        this.interrupts.trap = false; // Discard unhandled request to avoid deadlocking lower-priority interrupts
+      } else {
+        this.interrupts.trap = false;
+        // In real 8085 hardware, TRAP is non-maskable and DOES NOT reset the INTE flip-flop
+        this.halted = false;
+        this.pushWord(this.regs.pc);
+        this.regs.pc = 0x0024;
+        return true;
       }
-      this.pushWord(this.regs.pc);
-      this.regs.pc = 0x0024;
-      return true;
     }
-    if (!this.interrupts.inte) return false;
+    if (!this.interrupts.inte || this.eiDelay > 0) return false;
 
     if (this.interrupts.rst75 && !this.interrupts.mask75) {
-      this.interrupts.rst75 = false;
-      this.interrupts.inte = false;
-      this.halted = false;
-      if (this.memory[0x003c] === 0x00) {
-        this.interrupts.inte = true;
-        return false;
+      if (this.isVectorEmpty(0x003c)) {
+        this.interrupts.rst75 = false; // Discard unhandled request to avoid deadlocking lower-priority interrupts
+      } else {
+        this.interrupts.rst75 = false;
+        this.interrupts.inte = false;
+        this.halted = false;
+        this.pushWord(this.regs.pc);
+        this.regs.pc = 0x003c;
+        return true;
       }
-      this.pushWord(this.regs.pc);
-      this.regs.pc = 0x003c;
-      return true;
     }
     if (this.interrupts.rst65 && !this.interrupts.mask65) {
-      this.interrupts.rst65 = false;
-      this.interrupts.inte = false;
-      this.halted = false;
-      if (this.memory[0x0034] === 0x00) {
-        this.interrupts.inte = true;
-        return false;
+      if (this.isVectorEmpty(0x0034)) {
+        this.interrupts.rst65 = false; // Discard unhandled request to avoid deadlocking lower-priority interrupts
+      } else {
+        this.interrupts.rst65 = false;
+        this.interrupts.inte = false;
+        this.halted = false;
+        this.pushWord(this.regs.pc);
+        this.regs.pc = 0x0034;
+        return true;
       }
-      this.pushWord(this.regs.pc);
-      this.regs.pc = 0x0034;
-      return true;
     }
     if (this.interrupts.rst55 && !this.interrupts.mask55) {
-      this.interrupts.rst55 = false;
-      this.interrupts.inte = false;
-      this.halted = false;
-      if (this.memory[0x002c] === 0x00) {
-        this.interrupts.inte = true;
-        return false;
+      if (this.isVectorEmpty(0x002c)) {
+        this.interrupts.rst55 = false; // Discard unhandled request to avoid deadlocking lower-priority interrupts
+      } else {
+        this.interrupts.rst55 = false;
+        this.interrupts.inte = false;
+        this.halted = false;
+        this.pushWord(this.regs.pc);
+        this.regs.pc = 0x002c;
+        return true;
       }
-      this.pushWord(this.regs.pc);
-      this.regs.pc = 0x002c;
-      return true;
     }
     if (this.interrupts.intr) {
-      this.interrupts.intr = false;
-      this.interrupts.inte = false;
-      this.halted = false;
       const targetVec = this.interrupts.intrVector & 0xffff;
-      if (this.memory[targetVec] === 0x00) {
-        this.interrupts.inte = true;
-        return false;
+      if (this.isVectorEmpty(targetVec)) {
+        this.interrupts.intr = false;
+      } else {
+        this.interrupts.intr = false;
+        this.interrupts.inte = false;
+        this.halted = false;
+        this.pushWord(this.regs.pc);
+        this.regs.pc = targetVec;
+        return true;
       }
-      this.pushWord(this.regs.pc);
-      this.regs.pc = targetVec;
-      return true;
     }
     return false;
   }
@@ -309,7 +334,9 @@ export class Intel8085 {
   private sub8(val: number, borrow: number): number {
     const a = this.regs.a;
     const res = a - val - borrow;
-    this.flags.ac = ((a & 0x0f) - (val & 0x0f) - borrow) < 0;
+    // 8085 physical ALU: subtraction is two's complement addition (A + ~val + (1 - borrow))
+    // AC is bit 3 carry-out: AC = 1 indicates no borrow between nibbles; AC = 0 indicates borrow
+    this.flags.ac = ((a & 0x0f) + ((~val) & 0x0f) + (1 - borrow)) > 0x0f;
     this.flags.cy = res < 0;
     this.setSZP(res);
     return res & 0xff;
@@ -331,7 +358,8 @@ export class Intel8085 {
 
   private dcr8(val: number): number {
     const res = (val - 1) & 0xff;
-    this.flags.ac = (val & 0x0f) === 0x00;
+    // AC = 1 if no borrow from lower nibble (i.e. lower nibble was not 00H)
+    this.flags.ac = (val & 0x0f) !== 0x00;
     this.setSZP(res);
     return res;
   }
@@ -348,6 +376,7 @@ export class Intel8085 {
         sidBit: this.sidBit,
         sodBit: this.sodBit,
         memWrites: [],
+        eiDelay: this.eiDelay,
       };
       this.currentStepMemWrites = [];
     }
@@ -365,6 +394,7 @@ export class Intel8085 {
     }
 
     if (this.halted) {
+      this.totalCycles += 4;
       return 4;
     }
 
@@ -376,13 +406,13 @@ export class Intel8085 {
 
     switch (op) {
       case 0x00: break; // NOP
-      case 0x76: this.halted = true; cycles = 5; break; // HLT
+      case 0x76: this.halted = true; cycles = 7; break; // HLT (7 T-states: 4T M1 + 3T M2 bus idle)
 
       // LXI
-      case 0x01: this.setBC(this.readWord(this.regs.pc)); this.regs.pc += 2; cycles = 10; break;
-      case 0x11: this.setDE(this.readWord(this.regs.pc)); this.regs.pc += 2; cycles = 10; break;
-      case 0x21: this.setHL(this.readWord(this.regs.pc)); this.regs.pc += 2; cycles = 10; break;
-      case 0x31: this.regs.sp = this.readWord(this.regs.pc); this.regs.pc += 2; cycles = 10; break;
+      case 0x01: this.setBC(this.nextWord()); cycles = 10; break;
+      case 0x11: this.setDE(this.nextWord()); cycles = 10; break;
+      case 0x21: this.setHL(this.nextWord()); cycles = 10; break;
+      case 0x31: this.regs.sp = this.nextWord(); cycles = 10; break;
 
       // STAX
       case 0x02: this.writeByte(this.getBC(), this.regs.a); cycles = 7; break;
@@ -394,21 +424,21 @@ export class Intel8085 {
 
       // SHLD / LHLD
       case 0x22: {
-        const addr = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const addr = this.nextWord();
         this.writeWord(addr, this.getHL()); cycles = 16; break;
       }
       case 0x2A: {
-        const addr = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const addr = this.nextWord();
         this.setHL(this.readWord(addr)); cycles = 16; break;
       }
 
       // STA / LDA
       case 0x32: {
-        const addr = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const addr = this.nextWord();
         this.writeByte(addr, this.regs.a); cycles = 13; break;
       }
       case 0x3A: {
-        const addr = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const addr = this.nextWord();
         this.regs.a = this.readByte(addr); cycles = 13; break;
       }
 
@@ -453,14 +483,14 @@ export class Intel8085 {
       case 0x3D: this.regs.a = this.dcr8(this.regs.a); break;
 
       // MVI
-      case 0x06: this.regs.b = this.readByte(this.regs.pc++); cycles = 7; break;
-      case 0x0E: this.regs.c = this.readByte(this.regs.pc++); cycles = 7; break;
-      case 0x16: this.regs.d = this.readByte(this.regs.pc++); cycles = 7; break;
-      case 0x1E: this.regs.e = this.readByte(this.regs.pc++); cycles = 7; break;
-      case 0x26: this.regs.h = this.readByte(this.regs.pc++); cycles = 7; break;
-      case 0x2E: this.regs.l = this.readByte(this.regs.pc++); cycles = 7; break;
-      case 0x36: this.writeByte(this.getHL(), this.readByte(this.regs.pc++)); cycles = 10; break;
-      case 0x3E: this.regs.a = this.readByte(this.regs.pc++); cycles = 7; break;
+      case 0x06: this.regs.b = this.nextByte(); cycles = 7; break;
+      case 0x0E: this.regs.c = this.nextByte(); cycles = 7; break;
+      case 0x16: this.regs.d = this.nextByte(); cycles = 7; break;
+      case 0x1E: this.regs.e = this.nextByte(); cycles = 7; break;
+      case 0x26: this.regs.h = this.nextByte(); cycles = 7; break;
+      case 0x2E: this.regs.l = this.nextByte(); cycles = 7; break;
+      case 0x36: this.writeByte(this.getHL(), this.nextByte()); cycles = 10; break;
+      case 0x3E: this.regs.a = this.nextByte(); cycles = 7; break;
 
       // DAD
       case 0x09: this.dad16(this.getBC()); cycles = 10; break;
@@ -498,8 +528,8 @@ export class Intel8085 {
       case 0x27: {
         let a = this.regs.a;
         let cy = this.flags.cy;
-        let ac = this.flags.ac;
-        if ((a & 0x0f) > 9 || ac) {
+        let ac = false;
+        if ((a & 0x0f) > 9 || this.flags.ac) {
           if ((a & 0x0f) + 6 > 0x0f) ac = true;
           a += 6;
         }
@@ -672,123 +702,123 @@ export class Intel8085 {
       case 0xBF: this.sub8(this.regs.a, 0); break;
 
       // Immediate Arithmetic / Logic
-      case 0xC6: this.regs.a = this.add8(this.readByte(this.regs.pc++), 0); cycles = 7; break; // ADI
-      case 0xCE: this.regs.a = this.add8(this.readByte(this.regs.pc++), this.flags.cy ? 1 : 0); cycles = 7; break; // ACI
-      case 0xD6: this.regs.a = this.sub8(this.readByte(this.regs.pc++), 0); cycles = 7; break; // SUI
-      case 0xDE: this.regs.a = this.sub8(this.readByte(this.regs.pc++), this.flags.cy ? 1 : 0); cycles = 7; break; // SBI
+      case 0xC6: this.regs.a = this.add8(this.nextByte(), 0); cycles = 7; break; // ADI
+      case 0xCE: this.regs.a = this.add8(this.nextByte(), this.flags.cy ? 1 : 0); cycles = 7; break; // ACI
+      case 0xD6: this.regs.a = this.sub8(this.nextByte(), 0); cycles = 7; break; // SUI
+      case 0xDE: this.regs.a = this.sub8(this.nextByte(), this.flags.cy ? 1 : 0); cycles = 7; break; // SBI
       case 0xE6: { // ANI
-        this.regs.a &= this.readByte(this.regs.pc++);
+        this.regs.a &= this.nextByte();
         this.flags.cy = false;
         this.flags.ac = true;
         this.setSZP(this.regs.a);
         cycles = 7; break;
       }
       case 0xEE: { // XRI
-        this.regs.a ^= this.readByte(this.regs.pc++);
+        this.regs.a ^= this.nextByte();
         this.flags.cy = false;
         this.flags.ac = false;
         this.setSZP(this.regs.a);
         cycles = 7; break;
       }
       case 0xF6: { // ORI
-        this.regs.a |= this.readByte(this.regs.pc++);
+        this.regs.a |= this.nextByte();
         this.flags.cy = false;
         this.flags.ac = false;
         this.setSZP(this.regs.a);
         cycles = 7; break;
       }
       case 0xFE: { // CPI
-        this.sub8(this.readByte(this.regs.pc++), 0);
+        this.sub8(this.nextByte(), 0);
         cycles = 7; break;
       }
 
       // JMP / Conditional JMP
-      case 0xC3: this.regs.pc = this.readWord(this.regs.pc); cycles = 10; break;
+      case 0xC3: this.regs.pc = this.nextWord(); cycles = 10; break;
       case 0xC2: { // JNZ
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (!this.flags.z) { this.regs.pc = target; cycles = 10; } else { cycles = 7; }
         break;
       }
       case 0xCA: { // JZ
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (this.flags.z) { this.regs.pc = target; cycles = 10; } else { cycles = 7; }
         break;
       }
       case 0xD2: { // JNC
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (!this.flags.cy) { this.regs.pc = target; cycles = 10; } else { cycles = 7; }
         break;
       }
       case 0xDA: { // JC
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (this.flags.cy) { this.regs.pc = target; cycles = 10; } else { cycles = 7; }
         break;
       }
       case 0xE2: { // JPO
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (!this.flags.p) { this.regs.pc = target; cycles = 10; } else { cycles = 7; }
         break;
       }
       case 0xEA: { // JPE
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (this.flags.p) { this.regs.pc = target; cycles = 10; } else { cycles = 7; }
         break;
       }
       case 0xF2: { // JP (positive, sign == 0)
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (!this.flags.s) { this.regs.pc = target; cycles = 10; } else { cycles = 7; }
         break;
       }
       case 0xFA: { // JM (minus, sign == 1)
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (this.flags.s) { this.regs.pc = target; cycles = 10; } else { cycles = 7; }
         break;
       }
 
       // CALL / Conditional CALL
       case 0xCD: {
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         this.pushWord(this.regs.pc);
         this.regs.pc = target;
         cycles = 18; break;
       }
       case 0xC4: { // CNZ
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (!this.flags.z) { this.pushWord(this.regs.pc); this.regs.pc = target; cycles = 18; } else { cycles = 9; }
         break;
       }
       case 0xCC: { // CZ
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (this.flags.z) { this.pushWord(this.regs.pc); this.regs.pc = target; cycles = 18; } else { cycles = 9; }
         break;
       }
       case 0xD4: { // CNC
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (!this.flags.cy) { this.pushWord(this.regs.pc); this.regs.pc = target; cycles = 18; } else { cycles = 9; }
         break;
       }
       case 0xDC: { // CC
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (this.flags.cy) { this.pushWord(this.regs.pc); this.regs.pc = target; cycles = 18; } else { cycles = 9; }
         break;
       }
       case 0xE4: { // CPO
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (!this.flags.p) { this.pushWord(this.regs.pc); this.regs.pc = target; cycles = 18; } else { cycles = 9; }
         break;
       }
       case 0xEC: { // CPE
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (this.flags.p) { this.pushWord(this.regs.pc); this.regs.pc = target; cycles = 18; } else { cycles = 9; }
         break;
       }
       case 0xF4: { // CP
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (!this.flags.s) { this.pushWord(this.regs.pc); this.regs.pc = target; cycles = 18; } else { cycles = 9; }
         break;
       }
       case 0xFC: { // CM
-        const target = this.readWord(this.regs.pc); this.regs.pc += 2;
+        const target = this.nextWord();
         if (this.flags.s) { this.pushWord(this.regs.pc); this.regs.pc = target; cycles = 18; } else { cycles = 9; }
         break;
       }
@@ -837,7 +867,7 @@ export class Intel8085 {
         const hl = this.getHL();
         this.setHL(this.getDE());
         this.setDE(hl);
-        cycles = 5; break;
+        cycles = 4; break;
       }
       case 0xE3: { // XTHL
         const low = this.readByte(this.regs.sp);
@@ -851,7 +881,7 @@ export class Intel8085 {
 
       // Ports IN / OUT
       case 0xDB: { // IN port
-        const port = this.readByte(this.regs.pc++);
+        const port = this.nextByte();
         if (this.onPortRead) {
           this.regs.a = this.onPortRead(port) & 0xff;
         } else {
@@ -860,7 +890,7 @@ export class Intel8085 {
         cycles = 10; break;
       }
       case 0xD3: { // OUT port
-        const port = this.readByte(this.regs.pc++);
+        const port = this.nextByte();
         if (this.onPortWrite) {
           this.onPortWrite(port, this.regs.a);
         }
@@ -868,8 +898,8 @@ export class Intel8085 {
       }
 
       // EI / DI
-      case 0xFB: this.interrupts.inte = true; break; // EI
-      case 0xF3: this.interrupts.inte = false; break; // DI
+      case 0xFB: this.eiDelay = 2; break; // EI: 1-instruction delay before INTE is enabled
+      case 0xF3: this.interrupts.inte = false; this.eiDelay = 0; break; // DI
 
       // RIM (Read Interrupt Mask & SID)
       case 0x20: {
@@ -912,6 +942,14 @@ export class Intel8085 {
     }
 
     this.totalCycles += cycles;
+
+    // EI delay: interrupts are enabled after the instruction following EI completes
+    if (this.eiDelay > 0) {
+      this.eiDelay--;
+      if (this.eiDelay === 0) {
+        this.interrupts.inte = true;
+      }
+    }
     if (snapshot) {
       snapshot.memWrites = [...this.currentStepMemWrites];
       this.historyBuffer.push(snapshot);

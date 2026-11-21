@@ -40,6 +40,8 @@ export class Disassembler8085 {
       case 0x05: mnemonic = 'DCR B'; tStates = 4; break;
       case 0x06: mnemonic = `MVI B, ${toHex8(b1)}`; length = 2; tStates = 7; break;
       case 0x07: mnemonic = 'RLC'; tStates = 4; break;
+      case 0x08: mnemonic = 'NOP'; tStates = 4; break;
+      case 0x09: mnemonic = 'DAD B'; tStates = 10; break;
 
       case 0x0A: mnemonic = 'LDAX B'; tStates = 7; break;
       case 0x0B: mnemonic = 'DCX B'; tStates = 6; break;
@@ -48,6 +50,7 @@ export class Disassembler8085 {
       case 0x0E: mnemonic = `MVI C, ${toHex8(b1)}`; length = 2; tStates = 7; break;
       case 0x0F: mnemonic = 'RRC'; tStates = 4; break;
 
+      case 0x10: mnemonic = 'NOP'; tStates = 4; break;
       case 0x11: mnemonic = `LXI D, ${toHex16(b1, b2)}`; length = 3; tStates = 10; break;
       case 0x12: mnemonic = 'STAX D'; tStates = 7; break;
       case 0x13: mnemonic = 'INX D'; tStates = 6; break;
@@ -55,6 +58,8 @@ export class Disassembler8085 {
       case 0x15: mnemonic = 'DCR D'; tStates = 4; break;
       case 0x16: mnemonic = `MVI D, ${toHex8(b1)}`; length = 2; tStates = 7; break;
       case 0x17: mnemonic = 'RAL'; tStates = 4; break;
+      case 0x18: mnemonic = 'NOP'; tStates = 4; break;
+      case 0x19: mnemonic = 'DAD D'; tStates = 10; break;
 
       case 0x1A: mnemonic = 'LDAX D'; tStates = 7; break;
       case 0x1B: mnemonic = 'DCX D'; tStates = 6; break;
@@ -71,6 +76,8 @@ export class Disassembler8085 {
       case 0x25: mnemonic = 'DCR H'; tStates = 4; break;
       case 0x26: mnemonic = `MVI H, ${toHex8(b1)}`; length = 2; tStates = 7; break;
       case 0x27: mnemonic = 'DAA'; tStates = 4; break;
+      case 0x28: mnemonic = 'NOP'; tStates = 4; break;
+      case 0x29: mnemonic = 'DAD H'; tStates = 10; break;
 
       case 0x2A: mnemonic = `LHLD ${toHex16(b1, b2)}`; length = 3; tStates = 16; break;
       case 0x2B: mnemonic = 'DCX H'; tStates = 6; break;
@@ -87,6 +94,8 @@ export class Disassembler8085 {
       case 0x35: mnemonic = 'DCR M'; tStates = 10; break;
       case 0x36: mnemonic = `MVI M, ${toHex8(b1)}`; length = 2; tStates = 10; break;
       case 0x37: mnemonic = 'STC'; tStates = 4; break;
+      case 0x38: mnemonic = 'NOP'; tStates = 4; break;
+      case 0x39: mnemonic = 'DAD SP'; tStates = 10; break;
 
       case 0x3A: mnemonic = `LDA ${toHex16(b1, b2)}`; length = 3; tStates = 13; break;
       case 0x3B: mnemonic = 'DCX SP'; tStates = 6; break;

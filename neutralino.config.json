@@ -24,6 +24,7 @@
   "modes": {
     "window": {
       "title": "Simulador Moderno Intel 8085 (Desktop Native WebView2)",
+      "icon": "/web/icon.png",
       "width": 1360,
       "height": 880,
       "minWidth": 900,

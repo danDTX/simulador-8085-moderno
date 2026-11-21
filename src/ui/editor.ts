@@ -21,6 +21,7 @@ export interface EditorCallbacks {
   onStepOver?: () => void;
   onStepBack?: () => void;
   onRun?: () => void;
+  onPause?: () => void;
   onReset?: () => void;
   onSave?: () => void;
   onSaveTab?: (tab: EditorTab) => Promise<boolean>;
@@ -409,6 +410,7 @@ export class CodeEditor {
       // 3. Format Shortcut: Shift + Alt + F
       if (e.shiftKey && e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
+        e.stopPropagation();
         this.formatDocument();
         return;
       }
@@ -416,6 +418,7 @@ export class CodeEditor {
       // Word Wrap Shortcut: Alt + Z
       if (e.altKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
+        e.stopPropagation();
         this.toggleWordWrap();
         return;
       }
@@ -423,11 +426,13 @@ export class CodeEditor {
       // Historial de Navegación: Alt + Flecha Izquierda (Volver) / Alt + Flecha Derecha (Avanzar)
       if (e.altKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'Left')) {
         e.preventDefault();
+        e.stopPropagation();
         this.navigateBack();
         return;
       }
       if (e.altKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowRight' || e.key === 'Right')) {
         e.preventDefault();
+        e.stopPropagation();
         this.navigateForward();
         return;
       }
@@ -435,31 +440,39 @@ export class CodeEditor {
       // 4. Go to Definition Shortcut: F12
       if (e.key === 'F12') {
         e.preventDefault();
+        e.stopPropagation();
         this.goToDefinitionAtCursor();
         return;
       }
 
-      // 5. Hotkeys
+      // 5. Hotkeys (prevent bubbling to window to avoid double triggers)
       if (e.key === 'F9') {
         e.preventDefault();
+        e.stopPropagation();
         if (this.callbacks.onAssemble) this.callbacks.onAssemble();
       } else if (e.key === 'F8') {
         e.preventDefault();
+        e.stopPropagation();
         if (this.callbacks.onStepOver) this.callbacks.onStepOver();
       } else if (e.key === 'F7' && e.shiftKey) {
         e.preventDefault();
+        e.stopPropagation();
         if (this.callbacks.onStepBack) this.callbacks.onStepBack();
       } else if (e.key === 'F7') {
         e.preventDefault();
+        e.stopPropagation();
         if (this.callbacks.onStep) this.callbacks.onStep();
       } else if (e.key === 'F5') {
         e.preventDefault();
+        e.stopPropagation();
         if (this.callbacks.onRun) this.callbacks.onRun();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
+        e.stopPropagation();
         this.toggleBreakpoint(this.getCursorLine());
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
+        e.stopPropagation();
         if (this.callbacks.onSave) this.callbacks.onSave();
       }
     });
@@ -496,7 +509,8 @@ export class CodeEditor {
       if (this.callbacks.onRun) this.callbacks.onRun();
     });
     this.container.querySelector('#btn-pause')?.addEventListener('click', () => {
-      if (this.callbacks.onRun) this.callbacks.onRun();
+      if (this.callbacks.onPause) this.callbacks.onPause();
+      else if (this.callbacks.onRun) this.callbacks.onRun();
     });
     this.container.querySelector('#btn-reset')?.addEventListener('click', () => {
       if (this.callbacks.onReset) this.callbacks.onReset();
@@ -1266,7 +1280,7 @@ export class CodeEditor {
   }
 
   public openTab(name: string, code: string, fileHandle?: any, filePath?: string): void {
-    const existing = this.tabs.find(t => t.name === name);
+    const existing = this.tabs.find(t => (filePath && t.filePath === filePath) || (!filePath && !t.filePath && t.name === name));
     if (existing) {
       existing.code = code;
       existing.cleanCode = code;
@@ -1322,6 +1336,7 @@ export class CodeEditor {
     }
     this.renderTabs();
     this.updateEditor();
+    this.needsAssemble = true;
     if (this.callbacks.onTabChange) {
       this.callbacks.onTabChange(target.name, target.code);
     }

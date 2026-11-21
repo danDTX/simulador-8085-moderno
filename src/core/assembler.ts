@@ -160,13 +160,23 @@ export class Assembler8085 {
       return String(parseInt(dec, 10));
     });
 
+    // 5. Replace C-style hex numbers like 0x100
+    processed = processed.replace(/\b0x([0-9a-fA-F]+)\b/gi, (_, hex) => {
+      return String(parseInt(hex, 16));
+    });
+
+    // 6. Replace single-char literals like 'A'
+    processed = processed.replace(/'([^'])'/g, (_, ch) => {
+      return String(ch.charCodeAt(0));
+    });
+
     // Evaluate simple arithmetic expression safely without arbitrary code execution
     try {
       if (/^[0-9+\-*/&|^~() \t]+$/.test(processed)) {
         // Safe math evaluator
         const fn = new Function(`return Math.trunc(${processed});`);
         const res = fn();
-        if (typeof res === 'number' && !isNaN(res)) {
+        if (typeof res === 'number' && !isNaN(res) && Number.isFinite(res)) {
           return res;
         }
       }
@@ -202,7 +212,7 @@ export class Assembler8085 {
         continue;
       }
 
-      if (line.startsWith('.')) {
+      if (line.startsWith('.') || line.includes(':')) {
         inDefineBlock = false;
       }
 
@@ -216,7 +226,7 @@ export class Assembler8085 {
         }
       }
 
-      const singleDefMatch = line.match(/^\.define\s+([A-Za-z0-9_]+)\s+(.+)$/i);
+      const singleDefMatch = line.match(/^\.define\s+([A-Za-z0-9_ÑñÁÉÍÓÚáéíóúüÜ]+)\s+(.+)$/i);
       if (singleDefMatch) {
         defines.set(singleDefMatch[1].toUpperCase(), singleDefMatch[2].trim());
       }
@@ -255,6 +265,50 @@ export class Assembler8085 {
       return res;
     };
 
+    // Pre-populate resolved numeric defines into symbolTable before Pass 1
+    defines.forEach((val, key) => {
+      const num = Assembler8085.parseSingleNumber(val) ?? Assembler8085.evaluateExpression(val, symbolTable);
+      if (num !== null) {
+        symbolTable.set(key, num);
+      }
+    });
+
+    const stripComment = (line: string): string => {
+      let inSingle = false;
+      let inDouble = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === "'" && !inDouble) inSingle = !inSingle;
+        else if (ch === '"' && !inSingle) inDouble = !inDouble;
+        else if (ch === ';' && !inSingle && !inDouble) {
+          return line.substring(0, i);
+        }
+      }
+      return line;
+    };
+
+    const splitOperands = (str: string): string[] => {
+      const ops: string[] = [];
+      let current = '';
+      let inSingle = false;
+      let inDouble = false;
+      for (let i = 0; i < str.length; i++) {
+        const ch = str[i];
+        if (ch === "'" && !inDouble) inSingle = !inSingle;
+        else if (ch === '"' && !inSingle) inDouble = !inDouble;
+        else if (ch === ',' && !inSingle && !inDouble) {
+          ops.push(current.trim());
+          current = '';
+          continue;
+        }
+        current += ch;
+      }
+      if (current.trim().length > 0 || ops.length > 0) {
+        ops.push(current.trim());
+      }
+      return ops;
+    };
+
     // --- PASS 1: Identify labels, addresses and sizes ---
     const parsedLines: ParsedInstruction[] = [];
     inDefineBlock = false;
@@ -263,10 +317,8 @@ export class Assembler8085 {
       const lineNum = lineIdx + 1;
       let rawLine = rawLines[lineIdx];
 
-      // Strip comments
-      const commentIdx = rawLine.indexOf(';');
-      let code = commentIdx !== -1 ? rawLine.substring(0, commentIdx) : rawLine;
-      code = code.trim();
+      // Strip comments respecting quotes
+      let code = stripComment(rawLine).trim();
 
       if (!code) continue;
 
@@ -275,7 +327,7 @@ export class Assembler8085 {
         continue;
       }
 
-      if (code.startsWith('.')) {
+      if (code.startsWith('.') || code.includes(':')) {
         inDefineBlock = false;
       }
 
@@ -283,7 +335,12 @@ export class Assembler8085 {
         continue;
       }
 
-      if (code.toUpperCase().startsWith('.DEFINE ')) {
+      if (/^\.define\s+/i.test(code)) {
+        continue;
+      }
+
+      if (/^define(\s+|$)/i.test(code)) {
+        diagnostics.push({ line: lineNum, message: "En 8085sim las directivas deben comenzar obligatoriamente con punto: utiliza '.define <nombre> <valor>' en lugar de 'define'", isError: true });
         continue;
       }
 
@@ -312,9 +369,9 @@ export class Assembler8085 {
 
       const upperCode = code.toUpperCase();
 
-      if (upperCode.startsWith('.ORG ') || upperCode === '.ORG') {
+      if (/^\.ORG(\s+|$)/i.test(upperCode)) {
         const parts = code.split(/\s+/);
-        const expr = parts.slice(1).join(' ');
+        const expr = substituteDefines(parts.slice(1).join(' '));
         const addrNum = Assembler8085.parseSingleNumber(expr) ?? Assembler8085.evaluateExpression(expr, symbolTable);
         if (addrNum === null) {
           diagnostics.push({ line: lineNum, message: `Dirección no válida en .org: ${expr}`, isError: true });
@@ -325,7 +382,13 @@ export class Assembler8085 {
             hasExplicitOrg = true;
           }
         }
-        if (label) symbolTable.set(label, currentAddress);
+        if (label) {
+          if (symbolTable.has(label)) {
+            diagnostics.push({ line: lineNum, message: `Etiqueta duplicada: '${label}' ya fue definida previamente`, isError: true });
+          } else {
+            symbolTable.set(label, currentAddress);
+          }
+        }
         parsedLines.push({
           lineNum, label, mnemonic: '.ORG', operands: [expr],
           rawText: rawLine, address: currentAddress, size: 0, bytes: [], isDirective: true, directiveType: 'ORG'
@@ -333,16 +396,27 @@ export class Assembler8085 {
         continue;
       }
 
-      if (upperCode.startsWith('.DATA ') || upperCode === '.DATA') {
+      if (/^ORG(\s+|$)/i.test(upperCode)) {
+        diagnostics.push({ line: lineNum, message: "En 8085sim las directivas deben comenzar obligatoriamente con punto: utiliza '.org <dirección>' en lugar de 'ORG'", isError: true });
+        continue;
+      }
+
+      if (/^\.DATA(\s+|$)/i.test(upperCode)) {
         const parts = code.split(/\s+/);
-        const expr = parts.slice(1).join(' ');
+        const expr = substituteDefines(parts.slice(1).join(' '));
         const addrNum = Assembler8085.parseSingleNumber(expr) ?? Assembler8085.evaluateExpression(expr, symbolTable);
         if (addrNum === null) {
           diagnostics.push({ line: lineNum, message: `Dirección no válida en .data: ${expr}`, isError: true });
         } else {
           currentAddress = addrNum & 0xffff;
         }
-        if (label) symbolTable.set(label, currentAddress);
+        if (label) {
+          if (symbolTable.has(label)) {
+            diagnostics.push({ line: lineNum, message: `Etiqueta duplicada: '${label}' ya fue definida previamente`, isError: true });
+          } else {
+            symbolTable.set(label, currentAddress);
+          }
+        }
         parsedLines.push({
           lineNum, label, mnemonic: '.DATA', operands: [expr],
           rawText: rawLine, address: currentAddress, size: 0, bytes: [], isDirective: true, directiveType: 'DATA'
@@ -350,8 +424,19 @@ export class Assembler8085 {
         continue;
       }
 
+      if (/^DATA(\s+|$)/i.test(upperCode)) {
+        diagnostics.push({ line: lineNum, message: "En 8085sim las directivas deben comenzar obligatoriamente con punto: utiliza '.data <dirección>' en lugar de 'DATA'", isError: true });
+        continue;
+      }
+
       if (!code) {
-        if (label) symbolTable.set(label, currentAddress);
+        if (label) {
+          if (symbolTable.has(label)) {
+            diagnostics.push({ line: lineNum, message: `Etiqueta duplicada: '${label}' ya fue definida previamente`, isError: true });
+          } else {
+            symbolTable.set(label, currentAddress);
+          }
+        }
         continue;
       }
 
@@ -359,24 +444,34 @@ export class Assembler8085 {
       const tokens = code.split(/\s+/);
       let mnemonic = tokens[0].toUpperCase();
       const rest = code.substring(tokens[0].length).trim();
-      let operands: string[] = rest ? rest.split(',').map(s => s.trim()) : [];
+      let operands: string[] = rest ? splitOperands(rest) : [];
 
       if (rest && operands.some(op => op.length === 0)) {
         diagnostics.push({ line: lineNum, message: `Operando vacío o coma no válida en '${code}'`, isError: true });
       }
 
       // 8085sim compatibility: allow numeric register indexes 0..7 (0=B, 1=C, 2=D, 3=E, 4=H, 5=L, 6=M, 7=A)
+      // but emit an informative pedagogical warning
       const regIndexMap = ['B', 'C', 'D', 'E', 'H', 'L', 'M', 'A'];
       operands = operands.map(op => {
         const num = Assembler8085.parseSingleNumber(op);
         if (num !== null && num >= 0 && num <= 7 && mnemonic === 'MOV') {
+          diagnostics.push({
+            line: lineNum,
+            message: `Aviso didáctico: En 'MOV ${operands.join(', ')}', el operando '${op}' se interpreta por compatibilidad con 8085sim como el registro '${regIndexMap[num]}'. En ensamblador estándar se recomienda escribir '${regIndexMap[num]}'`,
+            isError: false
+          });
           return regIndexMap[num];
         }
         return op;
       });
 
       if (label) {
-        symbolTable.set(label, currentAddress);
+        if (symbolTable.has(label)) {
+          diagnostics.push({ line: lineNum, message: `Etiqueta duplicada: '${label}' ya fue definida previamente`, isError: true });
+        } else {
+          symbolTable.set(label, currentAddress);
+        }
       }
 
       let size = 0;
@@ -409,8 +504,14 @@ export class Assembler8085 {
         if (operands.length !== 1) {
           diagnostics.push({ line: lineNum, message: "Directiva 'DS' requiere exactamente 1 tamaño en bytes", isError: true });
         }
-        const count = Assembler8085.parseSingleNumber(operands[0]) || 1;
-        size = count;
+        const dsExpr = substituteDefines(operands[0]);
+        const parsedDs = Assembler8085.parseSingleNumber(dsExpr) ?? Assembler8085.evaluateExpression(dsExpr, symbolTable);
+        if (parsedDs === null || parsedDs < 0) {
+          diagnostics.push({ line: lineNum, message: `Tamaño no válido en directiva 'DS': '${operands[0]}'`, isError: true });
+          size = 1;
+        } else {
+          size = parsedDs;
+        }
       } else {
         if (Assembler8085.SIMPLE_OPCODES[mnemonic] !== undefined) {
           size = 1;
@@ -550,10 +651,17 @@ export class Assembler8085 {
     });
 
     // --- PASS 2: Emit bytes and resolve symbols / expressions ---
-    const resolveValue = (valStr: string, lineNum: number): number => {
+    const resolveValue = (valStr: string, lineNum: number, checkDecimalWarning: boolean = false): number => {
       const sub = substituteDefines(valStr);
       const evalVal = Assembler8085.evaluateExpression(sub, symbolTable);
       if (evalVal !== null) {
+        if (checkDecimalWarning && /^[0-9]+$/.test(sub.trim()) && evalVal > 9) {
+          diagnostics.push({
+            line: lineNum,
+            message: `Aviso didáctico: '${valStr}' sin sufijo se interpreta como decimal (${evalVal} = 0${evalVal.toString(16).toUpperCase()}H). Si pretendías hexadecimal, añade 'H' (ej. '${valStr}H')`,
+            isError: false
+          });
+        }
         return evalVal;
       }
       diagnostics.push({ line: lineNum, message: `Símbolo o expresión no definida: ${valStr}`, isError: true });
@@ -585,10 +693,18 @@ export class Assembler8085 {
           for (const op of inst.operands) {
             if ((op.startsWith('"') && op.endsWith('"')) || (op.startsWith("'") && op.endsWith("'"))) {
               for (let c = 1; c < op.length - 1; c++) {
-                bytes.push(op.charCodeAt(c));
+                const code = op.charCodeAt(c);
+                if (code > 0xff) {
+                  diagnostics.push({
+                    line: inst.lineNum,
+                    message: `Carácter fuera de rango de 8 bits en DB: '${op[c]}' (código U+${code.toString(16).toUpperCase()} > 0xFF)`,
+                    isError: true
+                  });
+                }
+                bytes.push(code & 0xff);
               }
             } else {
-              bytes.push(resolveValue(op, inst.lineNum) & 0xff);
+              bytes.push(resolveValue(op, inst.lineNum, true) & 0xff);
             }
           }
           inst.bytes = bytes;

@@ -132,11 +132,20 @@ export function createVirtualKeyboardPanel(perifs: PeripheralsManager): VirtualK
         </div>
       </div>
 
-      <!-- Bottom status bar identical to 8085sim (Image 4) -->
+      <!-- Bottom status bar with interactive port and interrupt selector -->
       <div class="vk-bottom-bar">
         <div class="vk-port-badge">
-          <span>Asociado a puerto 00H</span>
-          <span class="vk-intr-badge">(RST 5.5)</span>
+          <span>Puerto:</span>
+          <input type="text" id="vk-port-input" value="00" maxlength="2" style="width: 28px; padding: 1px 3px; font-family: var(--font-mono); font-size: 11px; background: #0d1117; color: #58a6ff; border: 1px solid #30363d; border-radius: 3px; text-align: center;" title="Puerto de entrada IN (hex 00-FF)" />
+          <span style="margin-left: 8px;">Interrupción:</span>
+          <select id="vk-sel-intr" style="padding: 1px 4px; font-size: 11px; font-family: var(--font-main); background: #0d1117; color: #58a6ff; border: 1px solid #30363d; border-radius: 3px; cursor: pointer;" title="Interrupción que dispara el teclado">
+            <option value="NONE">Ninguna</option>
+            <option value="5.5">RST 5.5 (002CH)</option>
+            <option value="6.5">RST 6.5 (0034H)</option>
+            <option value="7.5">RST 7.5 (003CH)</option>
+            <option value="TRAP">TRAP (0024H)</option>
+            <option value="INTR">INTR</option>
+          </select>
         </div>
         <div class="vk-status-box">
           <button class="vk-key vk-esc-btn" data-key="\x1b">Esc</button>
@@ -147,6 +156,27 @@ export function createVirtualKeyboardPanel(perifs: PeripheralsManager): VirtualK
   `;
 
   const displayKey = panel.querySelector('#vk-display-key') as HTMLElement;
+  const selIntr = panel.querySelector('#vk-sel-intr') as HTMLSelectElement;
+  const portInput = panel.querySelector('#vk-port-input') as HTMLInputElement;
+
+  if (selIntr) {
+    selIntr.value = perifs.state.keyboardInterruptType;
+    selIntr.addEventListener('change', () => {
+      perifs.setKeyboardInterrupt(selIntr.value as any);
+    });
+  }
+
+  if (portInput) {
+    portInput.value = perifs.state.keyboardPort.toString(16).toUpperCase().padStart(2, '0');
+    portInput.addEventListener('change', () => {
+      const p = parseInt(portInput.value, 16);
+      if (!isNaN(p)) {
+        perifs.state.keyboardPort = p & 0xff;
+        portInput.value = (p & 0xff).toString(16).toUpperCase().padStart(2, '0');
+      }
+    });
+  }
+
   let isCapsOn = false;
 
   const capsBtn = panel.querySelector('#vk-caps') as HTMLElement;
@@ -182,6 +212,14 @@ export function createVirtualKeyboardPanel(perifs: PeripheralsManager): VirtualK
   let lastKeyPressed = -1;
 
   const render = (force: boolean = false) => {
+    if (selIntr && selIntr.value !== perifs.state.keyboardInterruptType) {
+      selIntr.value = perifs.state.keyboardInterruptType;
+    }
+    const curPortHex = perifs.state.keyboardPort.toString(16).toUpperCase().padStart(2, '0');
+    if (portInput && portInput.value !== curPortHex) {
+      portInput.value = curPortHex;
+    }
+
     const label = perifs.state.currentKeyLabel;
     const pressed = perifs.state.currentKeyPressed;
     if (!force && label === lastKeyLabel && pressed === lastKeyPressed) {
@@ -195,8 +233,25 @@ export function createVirtualKeyboardPanel(perifs: PeripheralsManager): VirtualK
 
     if (label !== 'NULL' && pressed !== 0) {
       displayKey.classList.add('key-active');
-      const matchingBtn = panel.querySelector(`.vk-key[data-key="${label.toUpperCase()}"]`) ||
-                          panel.querySelector(`.vk-key[data-key="${label}"]`);
+      const keys = panel.querySelectorAll<HTMLButtonElement>('.vk-key[data-key]');
+      let matchingBtn: HTMLElement | null = null;
+      // 1. Exact match first (preserves case and avoids collision between arrow 'v' and letter 'V')
+      for (let i = 0; i < keys.length; i++) {
+        if (keys[i].getAttribute('data-key') === label) {
+          matchingBtn = keys[i];
+          break;
+        }
+      }
+      // 2. Fallback case-insensitive
+      if (!matchingBtn) {
+        const upper = label.toUpperCase();
+        for (let i = 0; i < keys.length; i++) {
+          if (keys[i].getAttribute('data-key') === upper) {
+            matchingBtn = keys[i];
+            break;
+          }
+        }
+      }
       matchingBtn?.classList.add('vk-key-pressed');
     } else {
       displayKey.classList.remove('key-active');
