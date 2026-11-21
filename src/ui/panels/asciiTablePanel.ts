@@ -1,3 +1,5 @@
+import { D15_PRESETS } from './displayEncoderPanel';
+
 export interface AsciiTableOptions {
   onInsertCode?: (code: string) => void;
 }
@@ -65,28 +67,46 @@ for (let i = 0; i < 128; i++) {
   });
 }
 
+// Mapa de conversión oficial para Displays de 15 Segmentos (8085sim Cátedra)
+const D15_MAP = new Map<string, { b1: number; b2: number }>();
+D15_PRESETS.forEach(p => D15_MAP.set(p.char.toUpperCase(), { b1: p.b1, b2: p.b2 }));
+// Presets adicionales para caracteres comunes
+D15_MAP.set(' ', { b1: 0x00, b2: 0x00 });
+D15_MAP.set('.', { b1: 0x00, b2: 0x80 });
+D15_MAP.set('-', { b1: 0x18, b2: 0x00 });
+D15_MAP.set('_', { b1: 0x00, b2: 0x20 });
+D15_MAP.set(':', { b1: 0x42, b2: 0x00 });
+
 export function createAsciiTablePanel(options: AsciiTableOptions = {}): AsciiTableInstance {
   const container = document.createElement('div');
   container.className = 'ascii-table-container';
   container.style.cssText = 'display: flex; flex-direction: column; height: 100%; padding: 12px; box-sizing: border-box; overflow-y: hidden; gap: 10px; font-family: var(--font-sans); color: var(--text-main); font-size: 13px;';
 
   let selectedCode: number = 65; // 'A' by default
+  let generatorMode: 'ascii' | '15seg' = 'ascii';
 
   container.innerHTML = `
-    <!-- Top Section: String to dB Generator -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase;">
-          🔤 Generador de Cadenas de Texto a Ensamblador ('dB'):
-        </span>
-        <span style="font-size: 10px; color: #7ee787;">Regla de Cátedra: Lista en una sola línea</span>
+    <!-- Top Section: Dual Mode String to dB Generator -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+        <!-- Mode Switcher -->
+        <div style="display: flex; gap: 4px; background: var(--bg-input); padding: 3px; border-radius: 6px; border: 1px solid var(--border-color);">
+          <button id="btn-mode-ascii" class="tb-btn" style="padding: 3px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; background: var(--accent); color: #fff;">
+            🖥️ Pantalla de Texto (ASCII 1B)
+          </button>
+          <button id="btn-mode-15seg" class="tb-btn" style="padding: 3px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; border: none; cursor: pointer; background: transparent; color: var(--text-muted);">
+            🔢 Displays 15 Seg (Pares b1, b2)
+          </button>
+        </div>
+        <span id="generator-rule-badge" style="font-size: 10px; color: #7ee787;">Regla de Cátedra: Lista compacta en una sola línea</span>
       </div>
 
       <div style="display: flex; gap: 6px;">
         <input id="ascii-string-input" type="text" placeholder="Escribe un texto aquí... (ej. HOLA MUNDO)" value="HOLA MUNDO" style="flex: 1; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 10px; font-size: 13px;" />
       </div>
 
-      <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 11px;">
+      <!-- ASCII Mode Options -->
+      <div id="opts-ascii-row" style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 11px;">
         <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
           <input type="checkbox" id="ascii-opt-null" checked />
           <span>Agregar terminador NUL (00H)</span>
@@ -98,6 +118,26 @@ export function createAsciiTablePanel(options: AsciiTableOptions = {}): AsciiTab
         <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
           <input type="checkbox" id="ascii-opt-hexonly" checked />
           <span>Códigos Hexadecimales puros (XXH)</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+          <input type="checkbox" id="ascii-opt-comment" checked />
+          <span>Comentario con texto original</span>
+        </label>
+      </div>
+
+      <!-- 15-Segment Mode Options -->
+      <div id="opts-15seg-row" style="display: none; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 11px; color: #e3b341;">
+        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+          <input type="checkbox" id="seg15-opt-null" checked />
+          <span>Agregar terminador fin de mensaje (00H, 00H)</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+          <input type="checkbox" id="seg15-opt-pad" />
+          <span>Rellenar con espacios a 8 dígitos (ancho de display)</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+          <input type="checkbox" id="seg15-opt-comment" checked />
+          <span>Comentario con texto original</span>
         </label>
       </div>
 
@@ -112,7 +152,7 @@ export function createAsciiTablePanel(options: AsciiTableOptions = {}): AsciiTab
     <!-- Middle Section: Search & Quick Detail -->
     <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
       <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
-        <span style="font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase;">Buscar:</span>
+        <span style="font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase;">Buscar en Tabla ASCII:</span>
         <input id="ascii-search-input" type="text" placeholder="Filtrar por Hex, Dec, Carácter o Nombre (ej. 41, A, CR)..." style="flex: 1; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px; font-size: 12px;" />
       </div>
       <div id="ascii-selection-banner" style="font-family: var(--font-mono); font-size: 12px; color: #e3b341; font-weight: bold; white-space: nowrap;"></div>
@@ -133,10 +173,21 @@ export function createAsciiTablePanel(options: AsciiTableOptions = {}): AsciiTab
   `;
 
   // DOM Elements
+  const btnModeAscii = container.querySelector('#btn-mode-ascii') as HTMLButtonElement;
+  const btnMode15seg = container.querySelector('#btn-mode-15seg') as HTMLButtonElement;
+  const optsAsciiRow = container.querySelector('#opts-ascii-row') as HTMLElement;
+  const opts15segRow = container.querySelector('#opts-15seg-row') as HTMLElement;
+
   const stringInput = container.querySelector('#ascii-string-input') as HTMLInputElement;
   const optNull = container.querySelector('#ascii-opt-null') as HTMLInputElement;
   const optCrlf = container.querySelector('#ascii-opt-crlf') as HTMLInputElement;
   const optHexOnly = container.querySelector('#ascii-opt-hexonly') as HTMLInputElement;
+  const optComment = container.querySelector('#ascii-opt-comment') as HTMLInputElement;
+
+  const seg15OptNull = container.querySelector('#seg15-opt-null') as HTMLInputElement;
+  const seg15OptPad = container.querySelector('#seg15-opt-pad') as HTMLInputElement;
+  const seg15OptComment = container.querySelector('#seg15-opt-comment') as HTMLInputElement;
+
   const generatedDb = container.querySelector('#ascii-generated-db') as HTMLElement;
   const copyDbBtn = container.querySelector('#ascii-btn-copy-db') as HTMLButtonElement;
   const insertDbBtn = container.querySelector('#ascii-btn-insert-db') as HTMLButtonElement;
@@ -145,34 +196,86 @@ export function createAsciiTablePanel(options: AsciiTableOptions = {}): AsciiTab
   const selectionBanner = container.querySelector('#ascii-selection-banner') as HTMLElement;
   const tableBody = container.querySelector('#ascii-table-body') as HTMLElement;
 
+  // Mode Switch Logic
+  const setMode = (mode: 'ascii' | '15seg') => {
+    generatorMode = mode;
+    if (mode === 'ascii') {
+      btnModeAscii.style.background = 'var(--accent)';
+      btnModeAscii.style.color = '#fff';
+      btnMode15seg.style.background = 'transparent';
+      btnMode15seg.style.color = 'var(--text-muted)';
+      optsAsciiRow.style.display = 'flex';
+      opts15segRow.style.display = 'none';
+      stringInput.placeholder = 'Texto para Pantalla CRT (ASCII 1 byte)... (ej. HOLA MUNDO)';
+    } else {
+      btnMode15seg.style.background = 'var(--accent)';
+      btnMode15seg.style.color = '#fff';
+      btnModeAscii.style.background = 'transparent';
+      btnModeAscii.style.color = 'var(--text-muted)';
+      opts15segRow.style.display = 'flex';
+      optsAsciiRow.style.display = 'none';
+      stringInput.placeholder = 'Texto para Displays 15 Segmentos (pares b1, b2)... (ej. SAN SIMON)';
+    }
+    updateGeneratedDb();
+  };
+
+  btnModeAscii.addEventListener('click', () => setMode('ascii'));
+  btnMode15seg.addEventListener('click', () => setMode('15seg'));
+
   // Realtime string generator logic
   const updateGeneratedDb = () => {
     const rawText = stringInput.value;
     const parts: string[] = [];
 
-    for (let i = 0; i < rawText.length; i++) {
-      const code = rawText.charCodeAt(i);
-      if (optHexOnly.checked) {
-        parts.push(code.toString(16).padStart(2, '0').toUpperCase() + 'H');
-      } else {
-        if (code >= 32 && code <= 126 && rawText[i] !== "'") {
-          parts.push(`'${rawText[i]}'`);
-        } else {
+    if (generatorMode === 'ascii') {
+      // Modo 1: Pantalla de Texto / Terminal CRT (Códigos ASCII estándar de 8 bits)
+      for (let i = 0; i < rawText.length; i++) {
+        const code = rawText.charCodeAt(i);
+        if (optHexOnly.checked) {
           parts.push(code.toString(16).padStart(2, '0').toUpperCase() + 'H');
+        } else {
+          if (code >= 32 && code <= 126 && rawText[i] !== "'") {
+            parts.push(`'${rawText[i]}'`);
+          } else {
+            parts.push(code.toString(16).padStart(2, '0').toUpperCase() + 'H');
+          }
         }
       }
-    }
 
-    if (optCrlf.checked) {
-      parts.push('0DH', '0AH');
-    }
+      if (optCrlf.checked) {
+        parts.push('0DH', '0AH');
+      }
 
-    if (optNull.checked) {
-      parts.push('00H');
-    }
+      if (optNull.checked) {
+        parts.push('00H');
+      }
 
-    const snippet = parts.length > 0 ? `dB ${parts.join(', ')}` : 'dB 00H';
-    generatedDb.textContent = snippet;
+      const commentStr = (optComment.checked && rawText) ? ` ; "${rawText}"` : '';
+      const snippet = parts.length > 0 ? `dB ${parts.join(', ')}${commentStr}` : 'dB 00H';
+      generatedDb.textContent = snippet;
+    } else {
+      // Modo 2: Displays de 15 Segmentos Alfanuméricos (Pares b1 = internos, b2 = perímetro)
+      let textToEncode = rawText.toUpperCase();
+      if (seg15OptPad.checked && textToEncode.length < 8) {
+        textToEncode = textToEncode.padEnd(8, ' ');
+      }
+
+      for (let i = 0; i < textToEncode.length; i++) {
+        const ch = textToEncode[i];
+        const seg = D15_MAP.get(ch) ?? { b1: 0x00, b2: 0x00 };
+        const b1Hex = seg.b1.toString(16).padStart(2, '0').toUpperCase() + 'H';
+        const b2Hex = seg.b2.toString(16).padStart(2, '0').toUpperCase() + 'H';
+        parts.push(b1Hex, b2Hex);
+      }
+
+      if (seg15OptNull.checked) {
+        parts.push('00H', '00H');
+      }
+
+      const commentStr = (seg15OptComment.checked && textToEncode) ? ` ; "${textToEncode}" (15-Seg Pares)` : '';
+      const snippet = parts.length > 0 ? `dB ${parts.join(', ')}${commentStr}` : 'dB 00H, 00H';
+      generatedDb.textContent = snippet;
+    }
   };
 
   // Render Table rows
@@ -257,11 +360,16 @@ export function createAsciiTablePanel(options: AsciiTableOptions = {}): AsciiTab
     }
   };
 
-  // Event Listeners
+  // Event Listeners for inputs and options
   stringInput.addEventListener('input', updateGeneratedDb);
   optNull.addEventListener('change', updateGeneratedDb);
   optCrlf.addEventListener('change', updateGeneratedDb);
   optHexOnly.addEventListener('change', updateGeneratedDb);
+  optComment.addEventListener('change', updateGeneratedDb);
+
+  seg15OptNull.addEventListener('change', updateGeneratedDb);
+  seg15OptPad.addEventListener('change', updateGeneratedDb);
+  seg15OptComment.addEventListener('change', updateGeneratedDb);
 
   copyDbBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(generatedDb.textContent || '');

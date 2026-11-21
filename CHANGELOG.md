@@ -4,6 +4,33 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.11.0] - 2026-11-21
+
+### 🛡️ Blindaje del Núcleo CPU, Cascada de Interrupciones y Generador Dual de Mensajes
+- **⚡ Preservación de `eiDelay` en Step Back (`CpuSnapshot`):**
+  - **Causa Raíz:** El contador privado de retardo de `EI` (`eiDelay = 2`) no formaba parte del snapshot de historial. Al retroceder un paso con `Shift+F7` tras un `EI; NOP`, el retardo se perdía, cancelando permanentemente la habilitación del flag `INTE`.
+  - **Solución:** Se integró `eiDelay` en la interfaz `CpuSnapshot`, capturándolo en cada paso y restaurándolo en `stepBack()`.
+- **🛑 Fidelidad de Hardware en TRAP y Calibración de `HLT`:**
+  - Se eliminó la desactivación de `INTE` en la rama TRAP dentro de `checkInterrupts()`, ya que en el Intel 8085 físico TRAP es no enmascarable y no altera el estado de `INTE`.
+  - Se calibró la instrucción `HLT` (`0x76`) a exactamente **7 ciclos T** (4T M1 Opcode Fetch + 3T M2 Bus Idle).
+- **🔁 Detección Refinada de Vectores Vacíos sin Bloqueo de Prioridades:**
+  - La evaluación de vectores huérfanos ahora analiza una ventana de 4 bytes nulos consecutivos en lugar de un único byte `00H`, permitiendo rutinas legítimas de interrupción que comiencen con `NOP` (`0x00`).
+- **🛡️ Guarda Anti-Zombi y Protección de Estado en `HLT`:**
+  - `startRun()` cuenta ahora con guarda anti-reentrada `if (this.isRunning) return;` y limpieza del temporizador anterior para evitar procesos duplicados al pulsar F5 repetidamente.
+  - Al pulsar F7 (`stepCpu`) o F8 (`stepOver`) con la CPU en reposo (`HLT`), el simulador comprueba si hay interrupciones pendientes para atender la ISR directamente; si no hay eventos, emite un aviso didáctico sin reensamblar ni borrar la memoria RAM modificada.
+- **🔒 Aislamiento de Periféricos en Prueba de Escritorio (`TraceEngine`):**
+  - La traza paso a paso utiliza un búfer temporal aislado (`tracePortsOut`), garantizando que instrucciones `OUT` durante la generación de tablas de traza no alteren los LEDs ni los displays de la sesión activa.
+- **🔤 Generador Dual de Mensajes (Pantalla CRT vs Displays 15 Segmentos):**
+  - La herramienta **Tabla y Conversor ASCII** incorpora selector rápido de modalidad:
+    - *Modo Pantalla CRT:* Emite bytes ASCII estándar de 8 bits para VRAM (`0E000H`).
+    - *Modo Displays 15 Segmentos:* Traduce el texto utilizando la **Tabla Maestra Oficial de 15 Segmentos** de la cátedra, emitiendo pares intercalados de bytes ($b_1$ trazos internos, $b_2$ perímetro exterior en Cátodo Común) con soporte nativo de la letra **`Ñ`** (`81H, 57H`) y formato en una sola línea.
+- **📁 Menú 'Ejemplos' Habilitado en Barra Superior:**
+  - Acceso directo en 1 clic a los ejemplos canónicos de cátedra: `cajero.asm` (Cajero Automático interactivo en CRT + RST 5.5), `ejemplo 25.asm` (Llave Digital), `Snake.asm` y `Leds.asm` (Coche Fantástico).
+- **🧪 Batería de Pruebas Ampliada:**
+  - Batería de 28 programas reales de Jubin Mitra y la cátedra de San Simón, más la suite de auditoría crítica (`tests/critical_fixes_audit.test.ts`), totalizando 24 test suites pasando al 100%.
+
+---
+
 ## [1.10.1] - 2026-11-05
 
 ### 🛡️ Blindaje Definitivo del Cierre por la "X" y Prevención de Procesos Zombis

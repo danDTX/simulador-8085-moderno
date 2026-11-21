@@ -77,7 +77,7 @@ const D7_PRESETS: { char: string; hex: number; segs: string }[] = [
 
 // Tabla Oficial de 15 Segmentos de la Cátedra (8085sim):
 // b1 = Byte 1 (Puerto Par N, Trazos Internos), b2 = Byte 2 (Puerto Impar N+1, Perímetro)
-const D15_PRESETS: { char: string; b1: number; b2: number }[] = [
+export const D15_PRESETS: { char: string; b1: number; b2: number }[] = [
   { char: '0', b1: 0x24, b2: 0x77 }, // Cero con diagonal técnica
   { char: '1', b1: 0x00, b2: 0x44 },
   { char: '2', b1: 0x00, b2: 0x3e },

@@ -83,6 +83,27 @@ describe('Developer Tools Suite - Factual Verification', () => {
     assert.strictEqual(dbLine.includes('\n'), false, 'Directiva dB must be in a single line');
   });
 
+  it('Verifies 15-segment string generator with interleaved pairs and Spanish Ñ', () => {
+    // Official table: 'Ñ' = b1: 81H, b2: 57H; 'A' = b1: 00H, b2: 5FH
+    const D15_MAP: Record<string, [string, string]> = {
+      'A': ['00H', '5FH'],
+      'Ñ': ['81H', '57H'],
+      'O': ['00H', '77H']
+    };
+
+    const word = 'AÑO';
+    const pairs: string[] = [];
+    for (const ch of word) {
+      const p = D15_MAP[ch];
+      pairs.push(p[0], p[1]);
+    }
+    pairs.push('00H', '00H'); // null terminator
+
+    const dbLine = `dB ${pairs.join(', ')} ; "${word}" (15-Seg Pares)`;
+    assert.strictEqual(dbLine, 'dB 00H, 5FH, 81H, 57H, 00H, 77H, 00H, 00H ; "AÑO" (15-Seg Pares)');
+    assert.strictEqual(dbLine.includes('\n'), false, '15-seg dB list must be in a single line');
+  });
+
   it('Verifies Programmer Calculator two-complement and bitwise operations', () => {
     // 8-bit negative numbers
     const val = 0xFE; // 254 unsigned, -2 signed

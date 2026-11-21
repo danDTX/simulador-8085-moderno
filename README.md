@@ -1,10 +1,19 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.10.1)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.11.0)
 
 Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 
 ---
 
 ## 🚀 Características Principales
+
+- **🛡️ Blindaje del Núcleo CPU, Interrupciones y Depuración Robusta (v1.11.0):**
+  - **Reversión Fiel con `eiDelay`:** Preservación del contador de retardo de `EI` en el búfer de historial (`CpuSnapshot`), garantizando que Step Back (`Shift+F7`) no desactive permanentemente las interrupciones enmascarables.
+  - **Fidelidad Hardware de TRAP y Timing HLT:** TRAP no apaga el flip-flop `INTE`, y `HLT` consume exactamente 7 ciclos T (4T M1 + 3T M2), conforme al datasheet del Intel 8085.
+  - **Depuración no Destructiva en `HLT`:** Pulsar `F7` o `F8` con la CPU en reposo atiende interrupciones pendientes o emite advertencia pedagógica sin reensamblar ni borrar la memoria RAM del usuario.
+  - **Guarda Anti-Zombi:** Eliminación de intervalos duplicados y protección de velocidad al pulsar Run (F5) repetidamente.
+  - **Aislamiento de Periféricos en Prueba de Escritorio:** Generación de tablas de traza en segundo plano sin alterar los LEDs ni displays de la sesión activa.
+  - **Generador Dual de Texto (CRT vs 15 Segmentos):** Herramienta en la Tabla ASCII para generar directivas `dB` compactas en una sola línea para VRAM CRT (ASCII 1 byte) o Displays de 15 Segmentos (pares $b_1, b_2$ en cátodo común con soporte de la letra `Ñ`).
+  - **Menú 'Ejemplos' Directo:** Acceso rápido en la barra superior a `cajero.asm`, `ejemplo 25.asm`, `Snake.asm` y `Leds.asm`.
 
 - **🛡️ Blindaje Definitivo de Cierre y Prevención de Procesos Zombis (v1.10.1):**
   - **Doble Enlace Garantizado de `windowClose`:** Suscripción dual (síncrona de arranque + confirmación post-handshake `'ready'`) que asegura la captura del clic en la `[X]` en cualquier equipo y bajo cualquier carga o antivirus.
