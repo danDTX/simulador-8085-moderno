@@ -4,6 +4,18 @@ Todas las modificaciones notables de este proyecto están documentadas en este a
 
 ---
 
+## [1.11.1] - 2026-11-21
+
+### 🎨 Inyección Nativa de Iconos Win32 y Metadatos de Aplicación en Windows
+- **🖼️ Parcheador PE Win32 Automatizado (`scripts/patch_windows_exe.cjs`):**
+  - **Causa Raíz:** El CLI de Neutralinojs (`neu build`) inyectaba los recursos de icono en el archivo ejecutable `.exe` con identificador `id: 0`. En la arquitectura Win32 / PE de Windows Explorer, los IDs de recursos válidos son enteros positivos ($\ge 1$). Por ello, el Explorador de Windows ignoraba el icono incrustado y mostraba el átomo genérico de Neutralinojs.
+  - **Solución Definitiva:** Se integró un paso de post-compilación en `npm run build:native` mediante `resedit` y `pe-library` que inyecta el icono oficial del 8085 en los IDs de recurso `1` (`IDI_APPLICATION`, estándar de la shell de Windows), `101` (`IDI_ICON1`, estándar Win32/C++) y `0` (retrocompatibilidad).
+  - Incluye todas las capas de resolución de 32 bits: 16×16, 32×32, 48×48, 64×64, 128×128 y 256×256.
+- **🏷️ Metadatos de Aplicación en el Ejecutable (`VersionInfo`):**
+  - Se configuró la información completa en el binario: Descripción del archivo (*Simulador Moderno Intel 8085*), Producto (*Simulador Moderno Intel 8085*), Autoría (*danDTX*), Copyright (*Copyright © 2026 danDTX*) y Versión (*1.11.1.0*).
+
+---
+
 ## [1.11.0] - 2026-11-21
 
 ### 🛡️ Blindaje del Núcleo CPU, Cascada de Interrupciones y Generador Dual de Mensajes

@@ -1,10 +1,14 @@
-# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.11.0)
+# Simulador Moderno del Microprocesador Intel 8085 (Desktop MDI v1.11.1)
 
 Reimplementación moderna de sala limpia (*Clean-Room Reverse Engineering*) del clásico software `8085sim` (2001, Borland Delphi/VCL), diseñado con tecnologías web de alto rendimiento y empaquetado como aplicación nativa ligera de escritorio con **Microsoft Edge WebView2 (Neutralinojs) + TypeScript + Vite** (~33 MB RAM).
 
 ---
 
 ## 🚀 Características Principales
+
+- **🎨 Inyección Nativa de Iconos Win32 y Metadatos de Aplicación (v1.11.1):**
+  - **Parcheador PE Integrado en el Build:** Script automatizado de post-compilación (`resedit`) que inyecta el icono oficial del 8085 en los identificadores de recursos Win32 estándar (`ID: 1` e `ID: 101`), resolviendo el fallo del CLI de Neutralino que usaba `ID: 0` e impedía al Explorador de Windows mostrar el icono personalizado.
+  - **Metadatos Completos:** Inclusión de nombre de producto, versión `1.11.1`, autoría de *danDTX* y descripción formal de la aplicación en el ejecutable `.exe`.
 
 - **🛡️ Blindaje del Núcleo CPU, Interrupciones y Depuración Robusta (v1.11.0):**
   - **Reversión Fiel con `eiDelay`:** Preservación del contador de retardo de `EI` en el búfer de historial (`CpuSnapshot`), garantizando que Step Back (`Shift+F7`) no desactive permanentemente las interrupciones enmascarables.
