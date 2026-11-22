@@ -10,7 +10,7 @@
     "test:ts": "node --loader ts-node/esm tests/run_tests.ts",
     "start": "npx @neutralinojs/neu run",
     "start:electron": "electron .",
-    "build:native": "npm run build && npx @neutralinojs/neu build"
+    "build:native": "npm run build && npx @neutralinojs/neu build && node scripts/patch_windows_exe.cjs"
   },
   "keywords": [
     "8085",
@@ -25,6 +25,8 @@
   "devDependencies": {
     "electron": "^44.9.2",
     "monaco-editor": "^0.57.0",
+    "pe-library": "^2.0.3",
+    "resedit": "^3.1.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^5.4.21"

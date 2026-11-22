@@ -1,7 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
   "applicationId": "edu.microprocesadores.sim8085",
+  "applicationName": "Simulador Moderno Intel 8085",
+  "applicationIcon": "public/icon.png",
   "version": "1.11.0",
+  "author": "danDTX",
+  "description": "Simulador Moderno Intel 8085 con MDI, Monaco Editor y Perifericos Virtuales",
+  "copyright": "Copyright © 2026 danDTX",
   "defaultMode": "window",
   "port": 0,
   "documentRoot": "/web/",
